@@ -590,7 +590,7 @@ namespace GameLauncherPro
         // 扫描目录下所有 exe，返回完整路径列表
         private HashSet<string> cachedExes = new(StringComparer.OrdinalIgnoreCase);
         // 防止 MonitorTick 重入
-        private bool isMonitoringBusy = false;
+        private volatile bool isMonitoringBusy = false;
         private bool gameDataDirty = true;
 
         private static readonly SolidColorBrush RunningIndicatorOn = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3F, 0xB9, 0x50));
@@ -681,12 +681,8 @@ namespace GameLauncherPro
                         try
                         {
                             if (process.Id == currentPid) continue;
-                            if (!IsOnACPower())
-                            {
-                                string procName = process.ProcessName;
-                                if (!cachedExes.Contains(procName)) continue;
-
-                            }
+                            string procName = process.ProcessName;
+                            if (!cachedExes.Contains(procName)) continue;
 
                             if (string.IsNullOrEmpty(process.MainWindowTitle)) continue;
 
@@ -751,12 +747,15 @@ namespace GameLauncherPro
                     if (stoppedGames.Count > 0)
                     {
                         gameDataDirty = true;
-                        try
+                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            saveDebounceTimer?.Stop();
-                            saveDebounceTimer?.Start();
-                        }
-                        catch { Task.Run(() => SaveGameData()); }
+                            try
+                            {
+                                saveDebounceTimer?.Stop();
+                                saveDebounceTimer?.Start();
+                            }
+                            catch { Task.Run(() => SaveGameData()); }
+                        }), System.Windows.Threading.DispatcherPriority.Background);
                     }
                     // Refresh UI in a power-aware manner on UI thread
                     System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() => RefreshUI_PowerAware()), System.Windows.Threading.DispatcherPriority.Background);
@@ -801,7 +800,10 @@ namespace GameLauncherPro
 
             if (!shouldRefresh)
             {
-                var sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList();
+
+                List<KeyValuePair<string, GameData>> sortedData;
+                lock (dataLock) { sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
+
                 DrawRank(sortedData);
                 return;
             }
@@ -821,7 +823,10 @@ namespace GameLauncherPro
                 }
                 else
                 {
-                    var sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList();
+
+                    List<KeyValuePair<string, GameData>> sortedData;
+                lock (dataLock) { sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
+
                     DrawRank(sortedData);
                 }
             }
@@ -831,7 +836,10 @@ namespace GameLauncherPro
         private void RenderGameLibrary()
         {
             // 使用数据过滤/排序生成视图模型集合，ItemsControl 通过绑定显示 Games
-            var list = gameData.ToList();
+
+            List<KeyValuePair<string, GameData>> list;
+            lock (dataLock) { list = gameData.ToList(); }
+
             var query = (this.FindName("Tb_Search") as System.Windows.Controls.TextBox)?.Text ?? "";
             if (!string.IsNullOrWhiteSpace(query))
                 list = list.Where(kv => kv.Key.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
@@ -1093,7 +1101,10 @@ namespace GameLauncherPro
         // ====================== 统一刷新图表 ======================
         private void RefreshCharts()
         {
-            var sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList();
+
+            List<KeyValuePair<string, GameData>> sortedData;
+            lock (dataLock) { sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
+
             RefreshLiveCharts(sortedData);
             DrawRank(sortedData);
         }
@@ -1151,8 +1162,13 @@ namespace GameLauncherPro
             Tb_Record.Text += $"统计时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n";
             Tb_Record.Text += $"监控目录：{GAME_ROOT_DIR}\n\n";
 
-            foreach (var (name, data) in gameData)
+
+            List<KeyValuePair<string, GameData>> recordSnapshot;
+            lock (dataLock) { recordSnapshot = gameData.ToList(); }
+            foreach (var kv in recordSnapshot)
             {
+                var name = kv.Key;
+                var data = kv.Value;
                 Tb_Record.Text += $"游戏：{name}\n";
                 Tb_Record.Text += $"总时长：{FormatTime(data.total_seconds)}\n";
                 Tb_Record.Text += $"最后游玩：{data.last_play}\n";
