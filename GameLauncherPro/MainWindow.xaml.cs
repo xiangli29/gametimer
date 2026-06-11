@@ -65,6 +65,7 @@ namespace GameLauncherPro
         // 防抖定时器
         private DispatcherTimer? searchDebounceTimer;
         private DispatcherTimer? saveDebounceTimer;
+        private DispatcherTimer? powerCheckTimer;
 
         // 图表金色配色（和你UI统一）
         private readonly Brush[] GoldColors = new Brush[]
@@ -151,6 +152,8 @@ namespace GameLauncherPro
             InitializeComponent();
             LoadConfig();
             LoadGameData();
+            // 预填充 exe 缓存，确保监控能立即识别运行中的游戏进程
+            if (!string.IsNullOrEmpty(GAME_ROOT_DIR)) ScanAllGameExes();
             // 初始化数据绑定集合
             Games = new ObservableCollection<GameViewModel>();
             this.DataContext = this;
@@ -178,6 +181,7 @@ namespace GameLauncherPro
                 imageLoadSemaphore?.Dispose();
                 searchDebounceTimer?.Stop();
                 saveDebounceTimer?.Stop();
+                powerCheckTimer?.Stop();
             }
             catch { }
         }
@@ -627,7 +631,7 @@ namespace GameLauncherPro
             monitorTimer.Tick += MonitorTick;
             monitorTimer.Start();
             // 根据电源状态定期检查并调整间隔
-            var powerCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+            powerCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
             powerCheckTimer.Tick += (s, e) => AdjustTimerForPower();
             powerCheckTimer.Start();
         }
@@ -991,9 +995,12 @@ namespace GameLauncherPro
         {
             if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
             {
-                if (!gameData.ContainsKey(vm.Name)) gameData[vm.Name] = new GameData();
-                gameData[vm.Name].current_side = gameData[vm.Name].current_side == "back" ? "front" : "back";
-                vm.CurrentSide = gameData[vm.Name].current_side;
+                lock (dataLock)
+                {
+                    if (!gameData.ContainsKey(vm.Name)) gameData[vm.Name] = new GameData();
+                    gameData[vm.Name].current_side = gameData[vm.Name].current_side == "back" ? "front" : "back";
+                    vm.CurrentSide = gameData[vm.Name].current_side;
+                }
                 ScheduleSaveGameData();
             }
         }
