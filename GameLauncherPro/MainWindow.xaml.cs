@@ -150,7 +150,7 @@ namespace GameLauncherPro
             _data.LoadConfig();
             _data.LoadGameData();
 
-            _monitor = new ProcessMonitorService(_data, () => RefreshUI_PowerAware(), ScheduleSaveGameData);
+            _monitor = new ProcessMonitorService(_data, () => Dispatcher.BeginInvoke(new Action(RefreshUI_PowerAware), System.Windows.Threading.DispatcherPriority.Background), ScheduleSaveGameData);
             _monitor.RunningStateUpdated += (displayText, hasRunning) =>
             {
                 Dispatcher.BeginInvoke(new Action(() =>
