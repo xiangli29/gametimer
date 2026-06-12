@@ -219,6 +219,11 @@
         <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="Padding" Value="10"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <TranslateTransform Y="0"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Effect">
             <Setter.Value>
                 <DropShadowEffect Color="#20D4A574"
@@ -237,10 +242,10 @@
         <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="RenderTransform">
             <Setter.Value>
-                <ScaleTransform CenterX="120" CenterY="193"/>
+                <TranslateTransform Y="0"/>
             </Setter.Value>
         </Setter>
-        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+
         <Setter Property="Effect">
             <Setter.Value>
                 <DropShadowEffect Color="{DynamicResource ShadowColor}"
@@ -252,14 +257,14 @@
                 <Trigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
-                                             To="1.04" Duration="0:0:0.15">
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(TranslateTransform.Y)"
+                                             To="-3" Duration="0:0:0.15">
                                 <DoubleAnimation.EasingFunction>
                                     <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
-                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
-                                             To="1.04" Duration="0:0:0.15">
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(TranslateTransform.Y)"
+                                             To="-3" Duration="0:0:0.15">
                                 <DoubleAnimation.EasingFunction>
                                     <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
@@ -270,14 +275,14 @@
                 <Trigger.ExitActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
-                                             To="1.0" Duration="0:0:0.15">
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(TranslateTransform.Y)"
+                                             To="0" Duration="0:0:0.15">
                                 <DoubleAnimation.EasingFunction>
                                     <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
-                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
-                                             To="1.0" Duration="0:0:0.15">
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(TranslateTransform.Y)"
+                                             To="0" Duration="0:0:0.15">
                                 <DoubleAnimation.EasingFunction>
                                     <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
@@ -304,6 +309,11 @@
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="Padding" Value="20,14"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <TranslateTransform Y="0"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Effect">
             <Setter.Value>
                 <DropShadowEffect Color="{DynamicResource ShadowGlowColor}"
