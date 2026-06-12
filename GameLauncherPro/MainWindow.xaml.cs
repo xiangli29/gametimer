@@ -64,7 +64,6 @@ namespace GameLauncherPro
         // 防抖定时器
         private DispatcherTimer? searchDebounceTimer;
         private DispatcherTimer? saveDebounceTimer;
-        private DispatcherTimer? powerCheckTimer;
 
         // 图表金色配色（和你UI统一）
         private readonly Brush[] GoldColors = new Brush[]
@@ -477,7 +476,6 @@ namespace GameLauncherPro
 
         // 扫描目录下所有 exe，返回完整路径列表
 
-        private DispatcherTimer? monitorTimer;
 
         private DateTime lastChartUpdateTime = DateTime.MinValue;
         private readonly TimeSpan chartUpdateIntervalOnBattery = TimeSpan.FromMinutes(2);
