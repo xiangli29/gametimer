@@ -100,6 +100,7 @@ namespace GameLauncherPro
 
         private void Cb_Filter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!IsLoaded) return;
             RefreshUI();
         }
 
