@@ -33,6 +33,7 @@ using Microsoft.Win32;
 using WinForms = System.Windows.Forms;
 using System.Windows.Shapes;
 using GameLauncherPro.Services;
+using System.Drawing;
 using System.Windows.Input;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
 using System.Threading.Tasks;
@@ -52,6 +53,7 @@ namespace GameLauncherPro
         private const int GAMES_PER_ROW = 5;
         private readonly GameDataService _data = new();
         private ProcessMonitorService _monitor = null!;
+        private System.Windows.Forms.NotifyIcon? _trayIcon;
 
 
         private bool gameDataDirty = true;
@@ -175,6 +177,25 @@ namespace GameLauncherPro
             _monitor.Start();
             if (!string.IsNullOrEmpty(_data.GameRootDir)) _monitor.ScanAllGameExes();
 
+            // 初始化系统托盘
+            _trayIcon = new System.Windows.Forms.NotifyIcon
+            {
+                Text = "GameLauncherPro",
+                Visible = false
+            };
+            try
+            {
+                var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrEmpty(exePath))
+                    _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath);
+            }
+            catch { }
+            _trayIcon.DoubleClick += (s, e) => ShowFromTray();
+            var trayMenu = new System.Windows.Forms.ContextMenuStrip();
+            trayMenu.Items.Add("显示", null, (s, e) => ShowFromTray());
+            trayMenu.Items.Add("退出", null, (s, e) => { _trayIcon.Visible = false; _trayIcon.Dispose(); System.Windows.Application.Current.Shutdown(); });
+            _trayIcon.ContextMenuStrip = trayMenu;
+
             InitializeCharts();
             ApplyConfigToUI();
             PopulateGameCollectionFromData();
@@ -188,6 +209,7 @@ namespace GameLauncherPro
             try
             {
                 _monitor.Stop();
+                _trayIcon?.Dispose();
                 imageLoadCts?.Cancel();
                 imageLoadSemaphore?.Dispose();
                 searchDebounceTimer?.Stop();
@@ -195,6 +217,24 @@ namespace GameLauncherPro
                 powerCheckTimer?.Stop();
             }
             catch { }
+        }
+
+        private void ShowFromTray()
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+            if (_trayIcon != null) _trayIcon.Visible = false;
+        }
+
+        protected override void OnStateChanged(EventArgs e)
+        {
+            base.OnStateChanged(e);
+            if (WindowState == WindowState.Minimized)
+            {
+                Hide();
+                if (_trayIcon != null) _trayIcon.Visible = true;
+            }
         }
 
         // 供 XAML 绑定的集合
