@@ -250,8 +250,20 @@
 
         <!-- ══════════════════ 顶部标题栏 ══════════════════ -->
         <Border Grid.Row="0" Style="{StaticResource HeaderPanel}">
-            <DockPanel>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+            <Grid>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="GameLauncherPro" FontSize="28"
+                               Foreground="{StaticResource GoldBrush}" FontWeight="SemiBold"
+                               FontFamily="Segoe UI" VerticalAlignment="Center">
+                        <TextBlock.Effect>
+                            <DropShadowEffect Color="#40D4A574" BlurRadius="8" ShadowDepth="0" Opacity="0.5"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock Text="典藏版" FontSize="13"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button x:Name="Btn_ChangeFolder" Content="切换游戏文件夹"
                             Style="{StaticResource GoldButton}"
                             Click="Btn_ChangeFolder_Click"/>
@@ -259,21 +271,7 @@
                             Style="{StaticResource GoldButton}" Margin="6,0,0,0"
                             Click="Btn_Refresh_Click"/>
                 </StackPanel>
-                <Grid>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="GameLauncherPro" FontSize="28"
-                                   Foreground="{StaticResource GoldBrush}" FontWeight="SemiBold"
-                                   FontFamily="Segoe UI" VerticalAlignment="Center">
-                            <TextBlock.Effect>
-                                <DropShadowEffect Color="#40D4A574" BlurRadius="8" ShadowDepth="0" Opacity="0.5"/>
-                            </TextBlock.Effect>
-                        </TextBlock>
-                        <TextBlock Text="典藏版" FontSize="13"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    </StackPanel>
-                </Grid>
-            </DockPanel>
+            </Grid>
         </Border>
 
         <!-- ══════════════════ 底部状态栏 ══════════════════ -->
