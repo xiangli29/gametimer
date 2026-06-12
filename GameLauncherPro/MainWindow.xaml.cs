@@ -213,7 +213,6 @@ namespace GameLauncherPro
                 imageLoadSemaphore?.Dispose();
                 searchDebounceTimer?.Stop();
                 saveDebounceTimer?.Stop();
-                powerCheckTimer?.Stop();
             }
             catch { }
         }
