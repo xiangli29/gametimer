@@ -793,6 +793,10 @@ namespace GameLauncherPro
             var values = sortedData.Select(x => (double)x.Value.total_seconds).ToArray();
 
             // 柱状图
+            var labelColor = new SkiaSharp.SKColor(0xA8, 0x90, 0x78);
+            barChart.XAxes = new Axis[] { new Axis { Labels = labels, LabelsRotation = 45, LabelsPaint = new SolidColorPaint(labelColor) } };
+            barChart.YAxes = new Axis[] { new Axis { Labeler = v => FormatTime((int)v), LabelsPaint = new SolidColorPaint(labelColor) } };
+
             var columnSeries = new LiveChartsCore.SkiaSharpView.ColumnSeries<double>
             {
                 Values = values,
@@ -800,9 +804,6 @@ namespace GameLauncherPro
                 Stroke = new SolidColorPaint(new SkiaSharp.SKColor(0x8B, 0x5A, 0x2B)) { StrokeThickness = 1 }
             };
             barChart.Series = new ISeries[] { columnSeries };
-
-            var labelColor = new SkiaSharp.SKColor(0xA8, 0x90, 0x78);
-            barChart.XAxes = new Axis[] { new Axis { Labels = labels, LabelsRotation = 45, LabelsPaint = new SolidColorPaint(labelColor) } };
 
             // 饼图：为每个游戏分配区分色
             var pieColors = new SkiaSharp.SKColor[]
