@@ -2,28 +2,29 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ══════════════════════════════════════════════
-         GameLauncherPro · 深色轻奢暖金风
-         Dark Luxury Warm Gold Theme
+         GameLauncherPro · 深色轻奢暖金风 — 玻璃质感版
+         Dark Luxury Warm Gold · Glass Refined
          ══════════════════════════════════════════════ -->
 
-    <!-- ─── 暗色主题色彩 ─── -->
+    <!-- ─── 色彩定义 ─── -->
     <Color x:Key="DarkAccent">#D4A574</Color>
     <Color x:Key="DarkAccent2">#8B5A2B</Color>
     <Color x:Key="DarkAccentGlow">#26D4A574</Color>
     <Color x:Key="DarkMainBg">#17120F</Color>
+    <Color x:Key="DarkMainBg2">#0F0A08</Color>
     <Color x:Key="DarkPanelBg">#1E1814</Color>
+    <Color x:Key="DarkPanelBg2">#15100D</Color>
     <Color x:Key="DarkCardBg">#2B1F1A</Color>
     <Color x:Key="DarkGlassBg">#1A2B1F1A</Color>
-    <Color x:Key="DarkBorder">#3A2E28</Color>
-    <Color x:Key="DarkBorderLight">#4A3D35</Color>
+    <Color x:Key="DarkGlassOverlay">#222B1F1A</Color>
+    <Color x:Key="DarkBorder">#2A201C</Color>
+    <Color x:Key="DarkBorderLight">#3D3029</Color>
+    <Color x:Key="DarkBorderHighlight">#25D4A574</Color>
     <Color x:Key="DarkTextPrimary">#F5E8D7</Color>
     <Color x:Key="DarkTextSecondary">#A89078</Color>
     <Color x:Key="DarkTextMuted">#6B5A4E</Color>
     <Color x:Key="DarkHover">#352820</Color>
     <Color x:Key="DarkPlaceholder">#1A1510</Color>
-
-    <!-- ─── 动态主题键 ─── -->
-    <SolidColorBrush x:Key="ThemeToggleBg" Color="Transparent"/>
 
     <Color x:Key="AccentColor">#D4A574</Color>
     <Color x:Key="Accent2Color">#8B5A2B</Color>
@@ -32,8 +33,8 @@
     <Color x:Key="PanelBgColor">#1E1814</Color>
     <Color x:Key="CardBgColor">#2B1F1A</Color>
     <Color x:Key="GlassBgColor">#1A2B1F1A</Color>
-    <Color x:Key="BorderColor">#3A2E28</Color>
-    <Color x:Key="BorderLightColor">#4A3D35</Color>
+    <Color x:Key="BorderColor">#2A201C</Color>
+    <Color x:Key="BorderLightColor">#3D3029</Color>
     <Color x:Key="TextPrimaryColor">#F5E8D7</Color>
     <Color x:Key="TextSecondaryColor">#A89078</Color>
     <Color x:Key="TextMutedColor">#6B5A4E</Color>
@@ -42,17 +43,17 @@
     <Color x:Key="ChartBgColor">#2B1F1A</Color>
     <Color x:Key="GoldColor">#D4A574</Color>
     <Color x:Key="ShadowColor">#000000</Color>
-    <Color x:Key="ShadowGlowColor">#40D4A574</Color>
+    <Color x:Key="ShadowGlowColor">#35D4A574</Color>
 
-    <!-- ─── 动态 Brush ─── -->
+    <!-- ─── 基础 Brush ─── -->
     <SolidColorBrush x:Key="AccentBrush" Color="#D4A574"/>
     <SolidColorBrush x:Key="Accent2Brush" Color="#8B5A2B"/>
     <SolidColorBrush x:Key="MainBgBrush" Color="#17120F"/>
     <SolidColorBrush x:Key="PanelBgBrush" Color="#1E1814"/>
     <SolidColorBrush x:Key="CardBgBrush" Color="#2B1F1A"/>
     <SolidColorBrush x:Key="GlassBgBrush" Color="#1A2B1F1A"/>
-    <SolidColorBrush x:Key="BorderBrush" Color="#3A2E28"/>
-    <SolidColorBrush x:Key="BorderLightBrush" Color="#4A3D35"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#2A201C"/>
+    <SolidColorBrush x:Key="BorderLightBrush" Color="#3D3029"/>
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5E8D7"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A89078"/>
     <SolidColorBrush x:Key="TextMutedBrush" Color="#6B5A4E"/>
@@ -62,8 +63,45 @@
     <SolidColorBrush x:Key="GoldBrush" Color="#D4A574"/>
     <SolidColorBrush x:Key="ChartAxisBrush" Color="#A89078"/>
     <SolidColorBrush x:Key="ChartLabelBrush" Color="#F5E8D7"/>
+    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#1A1510"/>
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#463830"/>
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#5C4A3E"/>
 
-    <!-- Accent 渐变刷 -->
+    <!-- ─── 径向渐变背景 ─── -->
+    <RadialGradientBrush x:Key="MainBgRadialBrush" GradientOrigin="0.3,0.3" RadiusX="1.2" RadiusY="1.2">
+        <GradientStop Color="#281810" Offset="0"/>
+        <GradientStop Color="#17120F" Offset="0.6"/>
+        <GradientStop Color="#0F0A08" Offset="1"/>
+    </RadialGradientBrush>
+
+    <!-- ─── 标题栏渐变 ─── -->
+    <LinearGradientBrush x:Key="HeaderGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#221814" Offset="0"/>
+        <GradientStop Color="#1E1814" Offset="0.5"/>
+        <GradientStop Color="#18120E" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- ─── 状态栏渐变 ─── -->
+    <LinearGradientBrush x:Key="StatusBarGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#18120E" Offset="0"/>
+        <GradientStop Color="#1E1814" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- ─── 卡片玻璃背景 ─── -->
+    <LinearGradientBrush x:Key="CardGlassBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#302520" Offset="0"/>
+        <GradientStop Color="#2B1F1A" Offset="0.4"/>
+        <GradientStop Color="#261A16" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- ─── 卡片 hover 玻璃背景 ─── -->
+    <LinearGradientBrush x:Key="CardGlassHoverBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#3A2C26" Offset="0"/>
+        <GradientStop Color="#352820" Offset="0.5"/>
+        <GradientStop Color="#2E221D" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Accent 渐变 -->
     <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{DynamicResource AccentColor}" Offset="0"/>
         <GradientStop Color="{DynamicResource Accent2Color}" Offset="1"/>
@@ -154,7 +192,8 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource AccentGradientBrushHover}"/>
+                            <Setter TargetName="border" Property="Background"
+                                    Value="{StaticResource AccentGradientBrushHover}"/>
                             <Setter TargetName="border" Property="Effect">
                                 <Setter.Value>
                                     <DropShadowEffect Color="{DynamicResource AccentGlowColor}"
@@ -169,12 +208,12 @@
     </Style>
 
     <!-- ══════════════════════════════════════════════
-         卡片样式
+         卡片样式·玻璃质感
          ══════════════════════════════════════════════ -->
 
     <!-- GameCard · 大区块卡片 + 底部暖金微光 -->
     <Style TargetType="Border" x:Key="GameCard">
-        <Setter Property="Background" Value="{StaticResource CardBgBrush}"/>
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="8"/>
@@ -182,43 +221,85 @@
         <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect Color="#25D4A574"
-                                  BlurRadius="6" ShadowDepth="1" Opacity="0.6"/>
+                <DropShadowEffect Color="#20D4A574"
+                                  BlurRadius="8" ShadowDepth="1" Opacity="0.5"/>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!-- GameCardHover · 游戏个体卡片 + hover 暖金辉光 -->
+    <!-- GameCardHover · 游戏个体卡片 + hover 浮起动画 + 暖金辉光 -->
     <Style TargetType="Border" x:Key="GameCardHover">
-        <Setter Property="Background" Value="{StaticResource CardBgBrush}"/>
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="Padding" Value="10"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform CenterX="120" CenterY="193"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
         <Setter Property="Effect">
             <Setter.Value>
                 <DropShadowEffect Color="{DynamicResource ShadowColor}"
-                                  BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
+                                  BlurRadius="8" ShadowDepth="1" Opacity="0.35"/>
             </Setter.Value>
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                             To="1.04" Duration="0:0:0.15">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut"/>
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                             To="1.04" Duration="0:0:0.15">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut"/>
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                             To="1.0" Duration="0:0:0.15">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut"/>
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                             To="1.0" Duration="0:0:0.15">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut"/>
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
                 <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                <Setter Property="Background" Value="{StaticResource HoverBrush}"/>
+                <Setter Property="Background" Value="{StaticResource CardGlassHoverBrush}"/>
                 <Setter Property="Effect">
                     <Setter.Value>
                         <DropShadowEffect Color="{DynamicResource ShadowGlowColor}"
-                                          BlurRadius="24" ShadowDepth="3" Opacity="0.75"/>
+                                          BlurRadius="28" ShadowDepth="4" Opacity="0.65"/>
                     </Setter.Value>
                 </Setter>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- HeaderPanel -->
+    <!-- HeaderPanel · 渐变标题栏 -->
     <Style TargetType="Border" x:Key="HeaderPanel">
-        <Setter Property="Background" Value="{StaticResource PanelBgBrush}"/>
+        <Setter Property="Background" Value="{StaticResource HeaderGradientBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="Padding" Value="20,14"/>
@@ -226,14 +307,49 @@
         <Setter Property="Effect">
             <Setter.Value>
                 <DropShadowEffect Color="{DynamicResource ShadowGlowColor}"
-                                  BlurRadius="12" ShadowDepth="0" Opacity="0.35"/>
+                                  BlurRadius="14" ShadowDepth="0" Opacity="0.4"/>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!-- ScrollViewer -->
+    <!-- ScrollViewer · 风格化滚动条 -->
     <Style TargetType="ScrollViewer">
         <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="8"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid>
+                        <Border CornerRadius="4" Background="{StaticResource ScrollTrackBrush}"/>
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border x:Name="thumbBorder"
+                                                    CornerRadius="4"
+                                                    Background="{StaticResource ScrollThumbBrush}"
+                                                    Margin="1,2"/>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="thumbBorder"
+                                                            Property="Background"
+                                                            Value="{StaticResource ScrollThumbHoverBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- TextBox -->
