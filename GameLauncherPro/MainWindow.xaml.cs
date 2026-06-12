@@ -122,6 +122,7 @@ namespace GameLauncherPro
         {
             _data.AutoRefreshMode = AutoRefreshModeEnum.Manual;
             ApplyConfigToUI();
+            Cb_Filter.SelectedIndex = 2;
             _data.SaveConfig();
         }
 
