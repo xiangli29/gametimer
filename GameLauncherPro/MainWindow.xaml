@@ -54,7 +54,7 @@
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBox x:Name="Tb_Search" Width="220" Margin="0,0,10,0"
                                      VerticalAlignment="Center" TextChanged="Tb_Search_TextChanged"/>
-                            <ComboBox x:Name="Cb_Filter" Width="200" Margin="0,0,10,0"
+                            <ComboBox x:Name="Cb_Filter" Width="200" Margin="0,0,10,0" SelectedIndex="2"
                                       VerticalAlignment="Center" SelectionChanged="Cb_Filter_SelectionChanged">
                                 <ComboBoxItem Content="默认"/>
                                 <ComboBoxItem Content="按游玩时间（从大到小）"/>
