@@ -151,7 +151,7 @@ namespace GameLauncherPro
             _data.LoadConfig();
             _data.LoadGameData();
 
-            _monitor = new ProcessMonitorService(_data, () => Dispatcher.BeginInvoke(new Action(RefreshUI_PowerAware), System.Windows.Threading.DispatcherPriority.Background), ScheduleSaveGameData);
+            _monitor = new ProcessMonitorService(_data, () => Dispatcher.BeginInvoke(new Action(() => { gameDataDirty = true; RefreshUI_PowerAware(); }), System.Windows.Threading.DispatcherPriority.Background), ScheduleSaveGameData);
             _monitor.RunningStateUpdated += (displayText, hasRunning) =>
             {
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -738,6 +738,36 @@ namespace GameLauncherPro
             if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
             {
                 PromptSetScore(vm.Name);
+            }
+        }
+
+        private void CardAddTime_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
+            {
+                var input = Microsoft.VisualBasic.Interaction.InputBox(
+                    "为游戏 '" + vm.Name + "' 手动补录时长（格式：小时 分钟，如 1 30）：", "补录时长", "");
+                if (!string.IsNullOrWhiteSpace(input))
+                {
+                    var parts = input.Trim().Split(new[] { ' ', '\uff0c', ',', '\uff1a', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    int totalSec = 0;
+                    if (parts.Length >= 2 && int.TryParse(parts[0], out var h) && int.TryParse(parts[1], out var m))
+                        totalSec = h * 3600 + m * 60;
+                    else if (int.TryParse(parts[0], out var mins))
+                        totalSec = mins * 60;
+                    if (totalSec > 0)
+                    {
+                        lock (_data.DataLock)
+                        {
+                            if (!_data.GameData.ContainsKey(vm.Name)) _data.GameData[vm.Name] = new GameData();
+                            _data.GameData[vm.Name].total_seconds += totalSec;
+                            _data.GameData[vm.Name].last_play = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        }
+                        _data.SaveGameData();
+                        gameDataDirty = true;
+                        RefreshUI();
+                    }
+                }
             }
         }
 
