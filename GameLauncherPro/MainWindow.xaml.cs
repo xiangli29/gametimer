@@ -741,26 +741,33 @@ namespace GameLauncherPro
             }
         }
 
+
         private void CardAddTime_Click(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
             {
+                int currentSec = vm.TotalSeconds;
+                int h = currentSec / 3600;
+                int m = (currentSec % 3600) / 60;
+                int s = currentSec % 60;
+                string currentStr = h + " " + m.ToString("D2");
                 var input = Microsoft.VisualBasic.Interaction.InputBox(
-                    "为游戏 '" + vm.Name + "' 手动补录时长（格式：小时 分钟，如 1 30）：", "补录时长", "");
+                    "修改游戏 '" + vm.Name + "' 的总游玩时长（格式：小时 分钟，如 1 30）：",
+                    "修改时长", currentStr);
                 if (!string.IsNullOrWhiteSpace(input))
                 {
                     var parts = input.Trim().Split(new[] { ' ', '\uff0c', ',', '\uff1a', ':' }, StringSplitOptions.RemoveEmptyEntries);
-                    int totalSec = 0;
-                    if (parts.Length >= 2 && int.TryParse(parts[0], out var h) && int.TryParse(parts[1], out var m))
-                        totalSec = h * 3600 + m * 60;
+                    int totalSec = -1;
+                    if (parts.Length >= 2 && int.TryParse(parts[0], out var hh) && int.TryParse(parts[1], out var mm))
+                        totalSec = hh * 3600 + mm * 60;
                     else if (int.TryParse(parts[0], out var mins))
                         totalSec = mins * 60;
-                    if (totalSec > 0)
+                    if (totalSec >= 0)
                     {
                         lock (_data.DataLock)
                         {
                             if (!_data.GameData.ContainsKey(vm.Name)) _data.GameData[vm.Name] = new GameData();
-                            _data.GameData[vm.Name].total_seconds += totalSec;
+                            _data.GameData[vm.Name].total_seconds = totalSec;
                             _data.GameData[vm.Name].last_play = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                         }
                         _data.SaveGameData();

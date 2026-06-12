@@ -147,7 +147,7 @@
                                                         <Button Content="⏱" Width="30" Height="26"
                                                                 Style="{StaticResource GoldButton}"
                                                                 FontSize="13" Padding="0" Margin="3,0"
-                                                                ToolTip="手动补录时间" Click="CardAddTime_Click"/>
+                                                                ToolTip="修改时长" Click="CardAddTime_Click"/>
                                                 </StackPanel>
                                             </Grid>
                                         </Border>
