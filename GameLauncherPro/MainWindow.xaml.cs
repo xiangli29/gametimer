@@ -32,6 +32,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using WinForms = System.Windows.Forms;
 using System.Windows.Shapes;
+using GameLauncherPro.Services;
 using System.Windows.Input;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
 using System.Threading.Tasks;
@@ -49,15 +50,11 @@ namespace GameLauncherPro
         private const string DATA_FILE = "game_play_time.json";
         private const int CHECK_INTERVAL = 5;
         private const int GAMES_PER_ROW = 5;
-        private string GAME_ROOT_DIR = "";
-        // 运行中游戏名 -> 会话开始时间，用于计算实时时长
-        private readonly Dictionary<string, DateTime> runningGameStartTimes = new();
-        // 运行中游戏名 -> exe 路径，跨 tick 保存，供“加入库”使用
-        private readonly Dictionary<string, string> runningGameExePaths = new();
-        private Dictionary<string, GameData> gameData = new();
-        // 同步对象，保护对共享集合的并发访问
-        private readonly object dataLock = new object();
+        private readonly GameDataService _data = new();
+        private ProcessMonitorService _monitor = null!;
 
+
+        private bool gameDataDirty = true;
         // 图片加载并发/取消支持
         private System.Threading.CancellationTokenSource? imageLoadCts;
         private readonly System.Threading.SemaphoreSlim imageLoadSemaphore = new System.Threading.SemaphoreSlim(4);
@@ -86,7 +83,7 @@ namespace GameLauncherPro
                 saveDebounceTimer?.Stop();
                 saveDebounceTimer?.Start();
             }
-            catch { Task.Run(() => SaveGameData()); }
+            catch { Task.Run(() => _data.SaveGameData()); }
         }
 
         private void Tb_Search_TextChanged(object sender, TextChangedEventArgs e)
@@ -110,50 +107,58 @@ namespace GameLauncherPro
         {
             try
             {
-                Rb_Manual.IsChecked = AutoRefreshMode == AutoRefreshModeEnum.Manual;
-                Rb_AutoOnAC.IsChecked = AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC;
-                Rb_Always.IsChecked = AutoRefreshMode == AutoRefreshModeEnum.Always;
-                Cb_StrongPower.IsChecked = strongPowerSaving;
+                Rb_Manual.IsChecked = _data.AutoRefreshMode == AutoRefreshModeEnum.Manual;
+                Rb_AutoOnAC.IsChecked = _data.AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC;
+                Rb_Always.IsChecked = _data.AutoRefreshMode == AutoRefreshModeEnum.Always;
+                Cb_StrongPower.IsChecked = _data.StrongPowerSaving;
             }
             catch { }
             // 兼容旧字段
-            AutoRefreshCharts = AutoRefreshMode == AutoRefreshModeEnum.Always || (AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC && IsOnACPower());
+            _data.AutoRefreshCharts = _data.AutoRefreshMode == AutoRefreshModeEnum.Always || (_data.AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC && ProcessMonitorService.IsOnACPower());
         }
 
         private void Rb_AutoManual_Checked(object sender, RoutedEventArgs e)
         {
-            AutoRefreshMode = AutoRefreshModeEnum.Manual;
+            _data.AutoRefreshMode = AutoRefreshModeEnum.Manual;
             ApplyConfigToUI();
-            SaveConfig();
+            _data.SaveConfig();
         }
 
         private void Rb_AutoOnAC_Checked(object sender, RoutedEventArgs e)
         {
-            AutoRefreshMode = AutoRefreshModeEnum.AutoOnAC;
+            _data.AutoRefreshMode = AutoRefreshModeEnum.AutoOnAC;
             ApplyConfigToUI();
-            SaveConfig();
+            _data.SaveConfig();
         }
 
         private void Rb_AutoAlways_Checked(object sender, RoutedEventArgs e)
         {
-            AutoRefreshMode = AutoRefreshModeEnum.Always;
+            _data.AutoRefreshMode = AutoRefreshModeEnum.Always;
             ApplyConfigToUI();
-            SaveConfig();
+            _data.SaveConfig();
         }
 
         private void Cb_StrongPower_Checked(object sender, RoutedEventArgs e)
         {
-            strongPowerSaving = Cb_StrongPower.IsChecked == true;
-            SaveConfig();
+            _data.StrongPowerSaving = Cb_StrongPower.IsChecked == true;
+            _data.SaveConfig();
         }
 
         public MainWindow()
         {
             InitializeComponent();
-            LoadConfig();
-            LoadGameData();
-            // 预填充 exe 缓存，确保监控能立即识别运行中的游戏进程
-            if (!string.IsNullOrEmpty(GAME_ROOT_DIR)) ScanAllGameExes();
+            _data.LoadConfig();
+            _data.LoadGameData();
+
+            _monitor = new ProcessMonitorService(_data, () => RefreshUI_PowerAware(), ScheduleSaveGameData);
+            _monitor.RunningStateUpdated += (displayText, hasRunning) =>
+            {
+                Tb_Running.Text = displayText;
+                RunningIndicator.Fill = hasRunning
+                    ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3F, 0xB9, 0x50))
+                    : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x48, 0x4F, 0x58));
+            };
+
             // 初始化数据绑定集合
             Games = new ObservableCollection<GameViewModel>();
             this.DataContext = this;
@@ -162,9 +167,11 @@ namespace GameLauncherPro
             searchDebounceTimer.Tick += (s, e) => { searchDebounceTimer?.Stop(); RefreshUI(); };
 
             saveDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            saveDebounceTimer.Tick += (s, e) => { saveDebounceTimer?.Stop(); SaveGameData(); };
+            saveDebounceTimer.Tick += (s, e) => { saveDebounceTimer?.Stop(); _data.SaveGameData(); };
 
-            StartMonitorTimer();
+            _monitor.Start();
+            if (!string.IsNullOrEmpty(_data.GameRootDir)) _monitor.ScanAllGameExes();
+
             InitializeCharts();
             ApplyConfigToUI();
             PopulateGameCollectionFromData();
@@ -177,6 +184,7 @@ namespace GameLauncherPro
             base.OnClosed(e);
             try
             {
+                _monitor.Stop();
                 imageLoadCts?.Cancel();
                 imageLoadSemaphore?.Dispose();
                 searchDebounceTimer?.Stop();
@@ -209,9 +217,9 @@ namespace GameLauncherPro
             {
                 var list = new List<GameViewModel>();
                 List<KeyValuePair<string, GameData>> snapshot;
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    snapshot = gameData.ToList();
+                    snapshot = _data.GameData.ToList();
                 }
 
                 foreach (var kv in snapshot)
@@ -298,19 +306,23 @@ namespace GameLauncherPro
         }
 
 
-
         private void EnsureThumbnailFolder()
         {
             try
             {
                 var dir = GetThumbnailDirectory();
                 if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                var appDir = GetAppDataDir();
+                var appDir = _data.GetAppDataDir();
                 if (!Directory.Exists(appDir)) Directory.CreateDirectory(appDir);
             }
             catch { }
         }
 
+
+        private string GetThumbnailDirectory()
+        {
+            return System.IO.Path.Combine(_data.GetAppDataDir(), "thumbnails");
+        }
         private string GetThumbnailPath(string originalPath)
         {
             try
@@ -399,10 +411,6 @@ namespace GameLauncherPro
         private CartesianChart? barChart;
         private PieChart? pieChart;
         // 控制是否自动刷新图表（可用于节电）
-        private enum AutoRefreshModeEnum { Manual = 0, AutoOnAC = 1, Always = 2 }
-        private AutoRefreshModeEnum AutoRefreshMode = AutoRefreshModeEnum.Manual;
-        private bool AutoRefreshCharts = false; // 兼容旧逻辑
-        private bool strongPowerSaving = false;
 
         private void InitializeCharts()
         {
@@ -414,135 +422,6 @@ namespace GameLauncherPro
             if (pieChart != null) pieChart.Series = new ISeries[] { };
         }
 
-        private bool IsOnACPower()
-        {
-            try
-            {
-                var status = SystemInformation.PowerStatus;
-                return status.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Online;
-            }
-            catch
-            {
-                return true; // 默认认为插电，避免降低实时性
-            }
-        }
-
-        // ====================== 配置/数据读写 ======================
-        private void LoadConfig()
-        {
-            var cfgPath = GetConfigFilePath();
-            if (File.Exists(cfgPath))
-            {
-                try
-                {
-                    var config = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(cfgPath));
-                    GAME_ROOT_DIR = config.TryGetValue("game_dir", out var dir) ? dir : "";
-                    if (config.TryGetValue("auto_refresh_mode", out var modeStr) && int.TryParse(modeStr, out var m))
-                        AutoRefreshMode = Enum.IsDefined(typeof(AutoRefreshModeEnum), m) ? (AutoRefreshModeEnum)m : AutoRefreshMode;
-                    AutoRefreshCharts = config.TryGetValue("auto_refresh_charts", out var ar) && bool.TryParse(ar, out var val) ? val : AutoRefreshCharts;
-                    strongPowerSaving = config.TryGetValue("strong_power_saving", out var sps) && bool.TryParse(sps, out var s) ? s : strongPowerSaving;
-                    // 不自动扫描目录，改为手动通过“添加到游戏库”按钮添加游戏条目
-                }
-                catch { }
-            }
-        }
-
-        private void SaveConfig()
-        {
-            var cfg = new Dictionary<string, string>
-            {
-                ["game_dir"] = GAME_ROOT_DIR ?? "",
-                ["auto_refresh_charts"] = AutoRefreshCharts.ToString(),
-                ["auto_refresh_mode"] = ((int)AutoRefreshMode).ToString(),
-                ["strong_power_saving"] = strongPowerSaving.ToString()
-            };
-            try
-            {
-                var cfgPath = GetConfigFilePath();
-                var dir = IOPath.GetDirectoryName(cfgPath);
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                File.WriteAllText(cfgPath, JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true }));
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"保存配置失败：{ex.Message}", "错误");
-            }
-        }
-
-        private void LoadGameData()
-        {
-            var dataPath = GetDataFilePath();
-            if (File.Exists(dataPath))
-            {
-                try
-                {
-                    var loaded = JsonSerializer.Deserialize<Dictionary<string, GameData>>(File.ReadAllText(dataPath))
-                               ?? new Dictionary<string, GameData>();
-                    lock (dataLock)
-                    {
-                        gameData = loaded;
-                    }
-                }
-                catch
-                {
-                    lock (dataLock) { gameData = new Dictionary<string, GameData>(); }
-                }
-            }
-            else
-            {
-                lock (dataLock) { gameData = new Dictionary<string, GameData>(); }
-            }
-        }
-
-        private void SaveGameData()
-        {
-            var dataPath = GetDataFilePath();
-            var logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "save_log.txt");
-            try
-            {
-                var dir = IOPath.GetDirectoryName(dataPath);
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                // serialize to string first
-                Dictionary<string, GameData> snapshot;
-                lock (dataLock) { snapshot = new Dictionary<string, GameData>(gameData); }
-                var content = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
-                // write to temp file then move to ensure atomic replace
-                var tmp = dataPath + ".tmp";
-                File.WriteAllText(tmp, content);
-                // replace existing file
-                try
-                {
-                    if (File.Exists(dataPath))
-                    {
-                        File.Delete(dataPath);
-                    }
-                    File.Move(tmp, dataPath);
-                }
-                catch (Exception mvEx)
-                {
-                    // fallback: attempt overwrite copy
-                    try
-                    {
-                        File.Copy(tmp, dataPath, true);
-                        File.Delete(tmp);
-                    }
-                    catch (Exception copyEx)
-                    {
-                        AppendLog(logPath, $"保存数据移动失败: {mvEx.Message}; 复制失败: {copyEx.Message}");
-                        MessageBox.Show($"保存数据失败：{copyEx.Message}", "错误");
-                        return;
-                    }
-                }
-
-                AppendLog(logPath, $"SaveGameData success: wrote {dataPath} ({DateTime.Now:O})");
-            }
-            catch (Exception ex)
-            {
-                AppendLog(logPath, $"SaveGameData exception: {ex.Message}");
-                MessageBox.Show($"保存数据失败：{ex.Message}", "错误");
-            }
-        }
-
         private void AppendLog(string path, string text)
         {
             try
@@ -552,224 +431,10 @@ namespace GameLauncherPro
             catch { }
         }
 
-        private string GetDataFilePath()
-        {
-            return System.IO.Path.Combine(GetAppDataDir(), DATA_FILE);
-        }
-
-        private string GetConfigFilePath()
-        {
-            return System.IO.Path.Combine(GetAppDataDir(), CONFIG_FILE);
-        }
-
-        private string GetThumbnailDirectory()
-        {
-            return System.IO.Path.Combine(GetAppDataDir(), "thumbnails");
-        }
-
-        // ====================== 扫描游戏目录 ======================
-        private void ScanAndAddGames()
-        {
-            if (!Directory.Exists(GAME_ROOT_DIR)) return;
-
-            foreach (var dir in Directory.GetDirectories(GAME_ROOT_DIR))
-            {
-                string gameName = System.IO.Path.GetFileName(dir);
-                var exes = Directory.GetFiles(dir, "*.exe", SearchOption.AllDirectories);
-                if (exes.Length == 0) continue;
-
-                lock (dataLock)
-                {
-                    if (!gameData.ContainsKey(gameName))
-                        gameData[gameName] = new GameData();
-
-                    gameData[gameName].launch_exe = exes[0];
-                    if (!gameData[gameName].exe_paths.Contains(exes[0]))
-                        gameData[gameName].exe_paths.Add(exes[0]);
-                }
-            }
-            ScheduleSaveGameData();
-        }
 
         // 扫描目录下所有 exe，返回完整路径列表
-        private HashSet<string> cachedExes = new(StringComparer.OrdinalIgnoreCase);
-        // 防止 MonitorTick 重入
-        private volatile bool isMonitoringBusy = false;
-        private bool gameDataDirty = true;
 
-        private static readonly SolidColorBrush RunningIndicatorOn = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3F, 0xB9, 0x50));
-        private static readonly SolidColorBrush RunningIndicatorOff = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x48, 0x4F, 0x58));
-                // 防抖定时器：搜索框、合并写入 (已在类顶部声明)
-
-        private List<string> ScanAllGameExes()
-        {
-            var result = new List<string>();
-            if (string.IsNullOrEmpty(GAME_ROOT_DIR) || !Directory.Exists(GAME_ROOT_DIR))
-                return result;
-
-            try
-            {
-                foreach (var file in Directory.EnumerateFiles(GAME_ROOT_DIR, "*.exe", SearchOption.AllDirectories))
-                {
-                    var p = System.IO.Path.GetFullPath(file);
-                    result.Add(p);
-                    cachedExes.Add(System.IO.Path.GetFileNameWithoutExtension(p));
-                }
-            }
-            catch { }
-
-            return result;
-        }
-
-        // ====================== 进程监控 ======================
         private DispatcherTimer? monitorTimer;
-
-        private void StartMonitorTimer()
-        {
-            monitorTimer = new DispatcherTimer();
-            monitorTimer.Interval = TimeSpan.FromSeconds(CHECK_INTERVAL);
-            monitorTimer.Tick += MonitorTick;
-            monitorTimer.Start();
-            // 根据电源状态定期检查并调整间隔
-            powerCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-            powerCheckTimer.Tick += (s, e) => AdjustTimerForPower();
-            powerCheckTimer.Start();
-        }
-
-        private void AdjustTimerForPower()
-        {
-            if (monitorTimer == null) return;
-            bool onAC = IsOnACPower();
-            if (onAC)
-            {
-                monitorTimer.Interval = TimeSpan.FromSeconds(CHECK_INTERVAL);
-            }
-            else
-            {
-                // 电池模式下降低频率以节省电量
-                monitorTimer.Interval = TimeSpan.FromSeconds(Math.Max(30, CHECK_INTERVAL));
-            }
-
-            // 根据 AutoRefreshMode 自动启用/禁用图表自动刷新
-            if (AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC)
-            {
-                AutoRefreshCharts = onAC && !strongPowerSaving;
-            }
-            else if (AutoRefreshMode == AutoRefreshModeEnum.Manual)
-            {
-                AutoRefreshCharts = false;
-            }
-            else if (AutoRefreshMode == AutoRefreshModeEnum.Always)
-            {
-                AutoRefreshCharts = !strongPowerSaving; // 若强省电则关闭
-            }
-        }
-
-        private void MonitorTick(object? sender, EventArgs e)
-        {
-            if (isMonitoringBusy) return;
-            isMonitoringBusy = true;
-            // Run heavy processing off UI thread to avoid blocking and causing UI flicker
-            Task.Run(() =>
-            {
-                try
-                {
-                    if (string.IsNullOrEmpty(GAME_ROOT_DIR)) return;
-                    int currentPid = Process.GetCurrentProcess().Id;
-
-                    var runningExes = new List<string>();
-                    var runningDisplay = new List<string>();
-
-                    foreach (var process in Process.GetProcesses())
-                    {
-                        try
-                        {
-                            if (process.Id == currentPid) continue;
-                            string procName = process.ProcessName;
-                            if (!cachedExes.Contains(procName)) continue;
-
-                            if (string.IsNullOrEmpty(process.MainWindowTitle)) continue;
-
-                            string exePath = null;
-                            try { exePath = process.MainModule?.FileName; } catch { exePath = null; }
-                            if (string.IsNullOrEmpty(exePath)) continue;
-                            if (!exePath.StartsWith(GAME_ROOT_DIR, StringComparison.OrdinalIgnoreCase)) continue;
-
-                            string gameName = System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(exePath) ?? "未知游戏");
-
-                            lock (dataLock)
-                            {
-                                runningGameExePaths[gameName] = exePath;
-                                if (!runningGameStartTimes.ContainsKey(gameName)) runningGameStartTimes[gameName] = DateTime.Now;
-                                runningExes.Add(gameName);
-                                int elapsed = (int)(DateTime.Now - runningGameStartTimes[gameName]).TotalSeconds;
-                                runningDisplay.Add($"{gameName} | 已游玩：{FormatTime(elapsed)}");
-                            }
-                        }
-                        catch { }
-                    }
-
-                    // Update running text on UI thread once
-                    try
-                    {
-                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            Tb_Running.Text = string.Join("\n", runningDisplay) + (runningDisplay.Count > 0 ? "\n" : "");
-                                RunningIndicator.Fill = (runningDisplay.Count > 0) ? RunningIndicatorOn : RunningIndicatorOff;
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                    }
-                    catch { }
-
-                    // Handle stopped games and update persistent data under lock
-                    List<string> stoppedGames = new List<string>();
-                    lock (dataLock)
-                    {
-                        foreach (var game in runningGameStartTimes.Keys.ToList())
-                        {
-                            if (!runningExes.Contains(game))
-                            {
-                                if (!gameData.ContainsKey(game)) gameData[game] = new GameData();
-                                int duration = (int)(DateTime.Now - runningGameStartTimes[game]).TotalSeconds;
-                                gameData[game].total_seconds += duration;
-                                gameData[game].last_play = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                if (runningGameExePaths.TryGetValue(game, out var stoppedExe))
-                                {
-                                    if (!gameData[game].exe_paths.Contains(stoppedExe)) gameData[game].exe_paths.Add(stoppedExe);
-                                    if (string.IsNullOrEmpty(gameData[game].launch_exe)) gameData[game].launch_exe = stoppedExe;
-                                }
-                                stoppedGames.Add(game);
-                            }
-                        }
-
-                        foreach (var g in stoppedGames)
-                        {
-                            runningGameStartTimes.Remove(g);
-                            runningGameExePaths.Remove(g);
-                        }
-                    }
-
-                    if (stoppedGames.Count > 0)
-                    {
-                        gameDataDirty = true;
-                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            try
-                            {
-                                saveDebounceTimer?.Stop();
-                                saveDebounceTimer?.Start();
-                            }
-                            catch { Task.Run(() => SaveGameData()); }
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                    }
-                    // Refresh UI in a power-aware manner on UI thread
-                    System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() => RefreshUI_PowerAware()), System.Windows.Threading.DispatcherPriority.Background);
-                }
-                finally
-                {
-                    isMonitoringBusy = false;
-                }
-            });
-        }
 
         private DateTime lastChartUpdateTime = DateTime.MinValue;
         private readonly TimeSpan chartUpdateIntervalOnBattery = TimeSpan.FromMinutes(2);
@@ -782,13 +447,13 @@ namespace GameLauncherPro
 
             // 根据用户设置和电源状态决定图表刷新策略
             bool shouldRefresh = false;
-            switch (AutoRefreshMode)
+            switch (_data.AutoRefreshMode)
             {
                 case AutoRefreshModeEnum.Always:
                     shouldRefresh = true;
                     break;
                 case AutoRefreshModeEnum.AutoOnAC:
-                    shouldRefresh = IsOnACPower();
+                    shouldRefresh = ProcessMonitorService.IsOnACPower();
                     break;
                 case AutoRefreshModeEnum.Manual:
                 default:
@@ -797,7 +462,7 @@ namespace GameLauncherPro
             }
 
             // 强省电模式下即使允许刷新也做额外限制
-            if (strongPowerSaving && !IsOnACPower())
+            if (_data.StrongPowerSaving && !ProcessMonitorService.IsOnACPower())
             {
                 shouldRefresh = false;
             }
@@ -806,14 +471,14 @@ namespace GameLauncherPro
             {
 
                 List<KeyValuePair<string, GameData>> sortedData;
-                lock (dataLock) { sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
+                lock (_data.DataLock) { sortedData = _data.GameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
 
                 DrawRank(sortedData);
                 return;
             }
 
             // 否则在允许的条件下按频率刷新
-            if (IsOnACPower())
+            if (ProcessMonitorService.IsOnACPower())
             {
                 RefreshCharts();
                 lastChartUpdateTime = DateTime.Now;
@@ -829,7 +494,7 @@ namespace GameLauncherPro
                 {
 
                     List<KeyValuePair<string, GameData>> sortedData;
-                lock (dataLock) { sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
+                lock (_data.DataLock) { sortedData = _data.GameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
 
                     DrawRank(sortedData);
                 }
@@ -842,7 +507,7 @@ namespace GameLauncherPro
             // 使用数据过滤/排序生成视图模型集合，ItemsControl 通过绑定显示 Games
 
             List<KeyValuePair<string, GameData>> list;
-            lock (dataLock) { list = gameData.ToList(); }
+            lock (_data.DataLock) { list = _data.GameData.ToList(); }
 
             var query = (this.FindName("Tb_Search") as System.Windows.Controls.TextBox)?.Text ?? "";
             if (!string.IsNullOrWhiteSpace(query))
@@ -879,10 +544,10 @@ namespace GameLauncherPro
         {
             if (vm == null) return;
             var name = vm.Name;
-            lock (dataLock)
+            lock (_data.DataLock)
             {
-                if (!gameData.ContainsKey(name)) gameData[name] = new GameData();
-                gameData[name].current_side = gameData[name].current_side == "back" ? "front" : "back";
+                if (!_data.GameData.ContainsKey(name)) _data.GameData[name] = new GameData();
+                _data.GameData[name].current_side = _data.GameData[name].current_side == "back" ? "front" : "back";
             }
             ScheduleSaveGameData();
             // 重新填充视图模型并重绘
@@ -896,10 +561,10 @@ namespace GameLauncherPro
             var dialog = new OpenFileDialog { Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp" };
             if (dialog.ShowDialog() == true)
             {
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    if (!gameData.ContainsKey(vm.Name)) gameData[vm.Name] = new GameData();
-                    gameData[vm.Name].cover_path = dialog.FileName;
+                    if (!_data.GameData.ContainsKey(vm.Name)) _data.GameData[vm.Name] = new GameData();
+                    _data.GameData[vm.Name].cover_path = dialog.FileName;
                 }
                 ScheduleSaveGameData();
                 PopulateGameCollectionFromData();
@@ -913,10 +578,10 @@ namespace GameLauncherPro
             var dialog = new OpenFileDialog { Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp" };
             if (dialog.ShowDialog() == true)
             {
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    if (!gameData.ContainsKey(vm.Name)) gameData[vm.Name] = new GameData();
-                    gameData[vm.Name].cover_back_path = dialog.FileName;
+                    if (!_data.GameData.ContainsKey(vm.Name)) _data.GameData[vm.Name] = new GameData();
+                    _data.GameData[vm.Name].cover_back_path = dialog.FileName;
                 }
                 ScheduleSaveGameData();
                 PopulateGameCollectionFromData();
@@ -931,10 +596,10 @@ namespace GameLauncherPro
             if (int.TryParse(input, out var s))
             {
                 s = Math.Max(0, Math.Min(10, s));
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    if (!gameData.ContainsKey(vm.Name)) gameData[vm.Name] = new GameData();
-                    gameData[vm.Name].score = s;
+                    if (!_data.GameData.ContainsKey(vm.Name)) _data.GameData[vm.Name] = new GameData();
+                    _data.GameData[vm.Name].score = s;
                 }
                 ScheduleSaveGameData();
                 PopulateGameCollectionFromData();
@@ -953,13 +618,13 @@ namespace GameLauncherPro
             var dialog = new OpenFileDialog { Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp" };
             if (dialog.ShowDialog() == true)
             {
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    if (!gameData.ContainsKey(gameName)) gameData[gameName] = new GameData();
+                    if (!_data.GameData.ContainsKey(gameName)) _data.GameData[gameName] = new GameData();
                     if (setFront)
-                        gameData[gameName].cover_path = dialog.FileName;
+                        _data.GameData[gameName].cover_path = dialog.FileName;
                     else
-                        gameData[gameName].cover_back_path = dialog.FileName;
+                        _data.GameData[gameName].cover_back_path = dialog.FileName;
                 }
                 // 更新 view model
                 var vm = FindViewModelByName(gameName);
@@ -978,10 +643,10 @@ namespace GameLauncherPro
             if (int.TryParse(input, out var s))
             {
                 s = Math.Max(0, Math.Min(10, s));
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    if (!gameData.ContainsKey(gameName)) gameData[gameName] = new GameData();
-                    gameData[gameName].score = s;
+                    if (!_data.GameData.ContainsKey(gameName)) _data.GameData[gameName] = new GameData();
+                    _data.GameData[gameName].score = s;
                 }
                 var vm = FindViewModelByName(gameName);
                 if (vm != null) vm.Score = s;
@@ -995,11 +660,11 @@ namespace GameLauncherPro
         {
             if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
             {
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    if (!gameData.ContainsKey(vm.Name)) gameData[vm.Name] = new GameData();
-                    gameData[vm.Name].current_side = gameData[vm.Name].current_side == "back" ? "front" : "back";
-                    vm.CurrentSide = gameData[vm.Name].current_side;
+                    if (!_data.GameData.ContainsKey(vm.Name)) _data.GameData[vm.Name] = new GameData();
+                    _data.GameData[vm.Name].current_side = _data.GameData[vm.Name].current_side == "back" ? "front" : "back";
+                    vm.CurrentSide = _data.GameData[vm.Name].current_side;
                 }
                 ScheduleSaveGameData();
             }
@@ -1046,12 +711,12 @@ namespace GameLauncherPro
             };
             if (dialog.ShowDialog() == true)
             {
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    if (!gameData.ContainsKey(gameName)) gameData[gameName] = new GameData();
-                    gameData[gameName].cover_path = dialog.FileName;
+                    if (!_data.GameData.ContainsKey(gameName)) _data.GameData[gameName] = new GameData();
+                    _data.GameData[gameName].cover_path = dialog.FileName;
                 }
-                SaveGameData();
+                _data.SaveGameData();
                 if (gameDataDirty) { RenderGameLibrary(); gameDataDirty = false; }
             }
         }
@@ -1059,7 +724,7 @@ namespace GameLauncherPro
         private void LaunchGame(string gameName)
         {
             string exe;
-            lock (dataLock) { exe = gameData.ContainsKey(gameName) ? gameData[gameName].launch_exe : string.Empty; }
+            lock (_data.DataLock) { exe = _data.GameData.ContainsKey(gameName) ? _data.GameData[gameName].launch_exe : string.Empty; }
             if (File.Exists(exe))
             {
                 try
@@ -1110,7 +775,7 @@ namespace GameLauncherPro
         {
 
             List<KeyValuePair<string, GameData>> sortedData;
-            lock (dataLock) { sortedData = gameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
+            lock (_data.DataLock) { sortedData = _data.GameData.OrderByDescending(x => x.Value.total_seconds).ToList(); }
 
             RefreshLiveCharts(sortedData);
             DrawRank(sortedData);
@@ -1167,11 +832,11 @@ namespace GameLauncherPro
         {
             Tb_Record.Text = "";
             Tb_Record.Text += $"统计时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n";
-            Tb_Record.Text += $"监控目录：{GAME_ROOT_DIR}\n\n";
+            Tb_Record.Text += $"监控目录：{_data.GameRootDir}\n\n";
 
 
             List<KeyValuePair<string, GameData>> recordSnapshot;
-            lock (dataLock) { recordSnapshot = gameData.ToList(); }
+            lock (_data.DataLock) { recordSnapshot = _data.GameData.ToList(); }
             foreach (var kv in recordSnapshot)
             {
                 var name = kv.Key;
@@ -1202,11 +867,11 @@ namespace GameLauncherPro
             var result = dialog.ShowDialog();
             if (result == WinForms.DialogResult.OK || result == WinForms.DialogResult.Yes)
             {
-                GAME_ROOT_DIR = dialog.SelectedPath;
-                SaveConfig();
-                cachedExes.Clear();
+                _data.GameRootDir = dialog.SelectedPath;
+                _data.SaveConfig();
+                _monitor.CachedExes.Clear();
                 // 异步预扫描新目录以填充缓存，加快后续监控匹配
-                Task.Run(() => ScanAllGameExes());
+                Task.Run(() => _monitor.ScanAllGameExes());
                 // 不再自动扫描目录
                 MessageBox.Show("已设置监控目录。请通过运行游戏并点击“将当前游戏加入库”来添加游戏。", "提示");
             }
@@ -1214,32 +879,32 @@ namespace GameLauncherPro
 
         private void Btn_AddGame_Click(object sender, RoutedEventArgs e)
         {
-            if (runningGameExePaths.Count == 0)
+            if (_monitor.RunningGameExePaths.Count == 0)
             {
                 MessageBox.Show("请先运行游戏，程序将自动识别运行中的游戏。", "提示");
                 return;
             }
 
             // 取第一个运行的游戏加入库
-            var first = runningGameExePaths.First();
+            var first = _monitor.RunningGameExePaths.First();
             string gameName = first.Key;
             string exePath = first.Value;
 
-            lock (dataLock)
+            lock (_data.DataLock)
             {
-                if (!gameData.ContainsKey(gameName)) gameData[gameName] = new GameData();
-                gameData[gameName].launch_exe = exePath;
-                if (!gameData[gameName].exe_paths.Contains(exePath)) gameData[gameName].exe_paths.Add(exePath);
+                if (!_data.GameData.ContainsKey(gameName)) _data.GameData[gameName] = new GameData();
+                _data.GameData[gameName].launch_exe = exePath;
+                if (!_data.GameData[gameName].exe_paths.Contains(exePath)) _data.GameData[gameName].exe_paths.Add(exePath);
             }
 
-            SaveGameData();
+            _data.SaveGameData();
             RefreshUI();
             MessageBox.Show($"已将游戏 {gameName} 添加到库中", "成功");
         }
 
         private void Btn_Refresh_Click(object sender, RoutedEventArgs e)
         {
-            LoadGameData();
+            _data.LoadGameData();
             // 手动刷新数据并界面
             RefreshUI();
             MessageBox.Show("数据已刷新！(注意：现在不自动扫描目录，请使用“将当前游戏加入库”添加游戏)", "提示");
@@ -1251,15 +916,15 @@ namespace GameLauncherPro
         {
             try
             {
-                Tb_StatusDir.Text = string.IsNullOrEmpty(GAME_ROOT_DIR)
+                Tb_StatusDir.Text = string.IsNullOrEmpty(_data.GameRootDir)
                     ? "\u672A\u8BBE\u7F6E\u76D1\u63A7\u76EE\u5F55"
-                    : $"监控目录: {GAME_ROOT_DIR}";
+                    : $"监控目录: {_data.GameRootDir}";
                 int gameCount;
                 int totalSec;
-                lock (dataLock)
+                lock (_data.DataLock)
                 {
-                    gameCount = gameData.Count;
-                    totalSec = gameData.Values.Sum(x => x.total_seconds);
+                    gameCount = _data.GameData.Count;
+                    totalSec = _data.GameData.Values.Sum(x => x.total_seconds);
                 }
                 Tb_StatusNum.Text = $"共 {gameCount} 款游戏";
                 Tb_StatusTotal.Text = $"总时长: {FormatTime(totalSec)}";
