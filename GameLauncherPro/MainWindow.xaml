@@ -6,7 +6,7 @@
         Title="GameLauncherPro · 典藏版"
         Height="900" Width="1400"
         WindowState="Maximized"
-        Background="{StaticResource MainBgRadialBrush}">
+        Background="{DynamicResource MainBgRadialBrush}">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -25,7 +25,7 @@
 
         <!-- ══════════════════ 内容滚动区 ══════════════════ -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                      Background="{StaticResource MainBgRadialBrush}">
+                      Background="{DynamicResource MainBgRadialBrush}">
             <StackPanel Margin="12,8">
 
                 <!-- ─── 游戏库 ─── -->
