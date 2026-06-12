@@ -466,7 +466,7 @@ namespace GameLauncherPro
             barChart = this.FindName("Lc_BarChart") as CartesianChart;
             pieChart = this.FindName("Lc_PieChart") as PieChart;
             // 初始清空
-            if (barChart != null) barChart.Series = new ISeries[] { };
+            if (barChart != null) { barChart.Series = new ISeries[] { }; barChart.XAxes = new Axis[] { new Axis() }; barChart.YAxes = new Axis[] { new Axis() }; }
             if (pieChart != null) pieChart.Series = new ISeries[] { };
         }
 
