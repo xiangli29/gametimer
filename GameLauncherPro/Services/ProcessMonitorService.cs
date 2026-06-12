@@ -141,7 +141,7 @@ namespace GameLauncherPro.Services
         private static string FormatTime(int seconds)
         {
             int h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60;
-            return h.ToString("00") + "小时" + m.ToString("00") + "分钟" + s.ToString("00") + "秒" + m.ToString("00") + "åˆ†é'Ÿ" + s.ToString("00") + "ç§'";
+            return h.ToString("00") + "小时" + m.ToString("00") + "分钟" + s.ToString("00") + "秒";
         }
     }
 }
