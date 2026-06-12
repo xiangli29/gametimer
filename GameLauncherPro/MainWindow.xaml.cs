@@ -153,10 +153,13 @@ namespace GameLauncherPro
             _monitor = new ProcessMonitorService(_data, () => RefreshUI_PowerAware(), ScheduleSaveGameData);
             _monitor.RunningStateUpdated += (displayText, hasRunning) =>
             {
-                Tb_Running.Text = displayText;
-                RunningIndicator.Fill = hasRunning
-                    ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3F, 0xB9, 0x50))
-                    : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x48, 0x4F, 0x58));
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Tb_Running.Text = displayText;
+                    RunningIndicator.Fill = hasRunning
+                        ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3F, 0xB9, 0x50))
+                        : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x48, 0x4F, 0x58));
+                }), System.Windows.Threading.DispatcherPriority.Background);
             };
 
             // 初始化数据绑定集合
