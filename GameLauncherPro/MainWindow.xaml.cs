@@ -199,6 +199,13 @@ namespace GameLauncherPro
             ApplyConfigToUI();
             PopulateGameCollectionFromData();
             RefreshUI();
+
+            // 窗口加载完成后初始化图表 + 嵌套滚动
+            Loaded += (s, e) =>
+            {
+                RefreshCharts();
+                HookNestedScrolling(this);
+            };
             EnsureThumbnailFolder();
         }
 
@@ -786,6 +793,44 @@ namespace GameLauncherPro
             }
         }
 
+
+        // 嵌套滚动：内层 ScrollViewer 到底/到顶后继续滚动外层
+        private static void HookNestedScrolling(DependencyObject parent)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is ScrollViewer innerSv)
+                {
+                    innerSv.PreviewMouseWheel += (s, args) =>
+                    {
+                        if (args.Handled) return;
+                        var sv = (ScrollViewer)s;
+                        bool atTop = args.Delta > 0 && sv.VerticalOffset <= 0;
+                        bool atBottom = args.Delta < 0 && sv.VerticalOffset >= sv.ScrollableHeight;
+                        if (atTop || atBottom)
+                        {
+                            args.Handled = true;
+                            // 找到最外层 ScrollViewer 并手动滚动
+                            var outer = FindOuterScrollViewer(sv);
+                            outer?.ScrollToVerticalOffset(outer.VerticalOffset - args.Delta);
+                        }
+                    };
+                }
+                HookNestedScrolling(child);
+            }
+        }
+
+        private static ScrollViewer? FindOuterScrollViewer(DependencyObject element)
+        {
+            var parent = VisualTreeHelper.GetParent(element);
+            while (parent != null)
+            {
+                if (parent is ScrollViewer sv) return sv;
+                parent = VisualTreeHelper.GetParent(parent);
+            }
+            return null;
+        }
         private string FormatTime(int seconds)
         {
             int h = seconds / 3600;
