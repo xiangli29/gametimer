@@ -144,10 +144,23 @@
                                                                 FontSize="13" Padding="0" Margin="3,0"
                                                                 ToolTip="设置反面封面" Click="CardSetBack_Click"/>
                                                     </StackPanel>
+                                                    <StackPanel Orientation="Horizontal"
+                                                                HorizontalAlignment="Center" Margin="0,2,0,0">
                                                         <Button Content="⏱" Width="30" Height="26"
                                                                 Style="{StaticResource GoldButton}"
-                                                                FontSize="13" Padding="0" Margin="3,0"
+                                                                FontSize="13" Padding="0"
                                                                 ToolTip="修改时长" Click="CardAddTime_Click"/>
+                                                        <Button Content="⚙" Width="30" Height="26"
+                                                                Style="{StaticResource GoldButton}"
+                                                                FontSize="13" Padding="0" Margin="3,0"
+                                                                ToolTip="{Binding LaunchExeDisplay}"
+                                                               Click="CardSwitchExe_Click"/>
+                                                        <Button Content="✕" Width="30" Height="26"
+                                                                Style="{StaticResource GoldButton}"
+                                                                FontSize="11" Padding="0" Margin="3,0"
+                                                                ToolTip="删除此游戏"
+                                                                Click="CardDelete_Click"/>
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </Grid>
                                         </Border>

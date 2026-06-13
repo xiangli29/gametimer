@@ -153,7 +153,7 @@ namespace GameLauncherPro
             _data.LoadConfig();
             _data.LoadGameData();
 
-            _monitor = new ProcessMonitorService(_data, () => Dispatcher.BeginInvoke(new Action(() => { gameDataDirty = true; RefreshUI_PowerAware(); }), System.Windows.Threading.DispatcherPriority.Background), ScheduleSaveGameData);
+            _monitor = new ProcessMonitorService(_data, (hasChanges) => Dispatcher.BeginInvoke(new Action(() => { if (hasChanges) { UpdateVmTimesInPlace(); } RefreshUI_PowerAware(); }), System.Windows.Threading.DispatcherPriority.Background), ScheduleSaveGameData);
             _monitor.RunningStateUpdated += (displayText, hasRunning) =>
             {
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -488,6 +488,22 @@ namespace GameLauncherPro
         private DateTime lastChartUpdateTime = DateTime.MinValue;
         private readonly TimeSpan chartUpdateIntervalOnBattery = TimeSpan.FromMinutes(2);
 
+        /// <summary>轻量更新 ViewModel 属性（不重建集合），游戏停止时由 MonitorTick 触发</summary>
+        private void UpdateVmTimesInPlace()
+        {
+            lock (_data.DataLock)
+            {
+                foreach (var vm in Games)
+                {
+                    if (_data.GameData.TryGetValue(vm.Name, out var gd))
+                    {
+                        vm.TotalSeconds = gd.total_seconds;
+                        vm.LastPlay = gd.last_play ?? "";
+                    }
+                }
+            }
+        }
+
         private void RefreshUI_PowerAware()
         {
             if (gameDataDirty) { RenderGameLibrary(); gameDataDirty = false; }
@@ -772,7 +788,7 @@ namespace GameLauncherPro
                             _data.GameData[vm.Name].total_seconds = totalSec;
                             _data.GameData[vm.Name].last_play = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                         }
-                        _data.SaveGameData();
+                    _data.SaveGameData();
                         gameDataDirty = true;
                         RefreshUI();
                     }
@@ -780,11 +796,60 @@ namespace GameLauncherPro
             }
         }
 
+        private void CardSwitchExe_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
+            {
+                var gameName = vm.Name;
+                var dialog = new OpenFileDialog
+                {
+                    Filter = "可执行文件|*.exe",
+                    Title = $"选择 {gameName} 的启动程序"
+                };
+                if (dialog.ShowDialog() != true) return;
+
+                var newPath = dialog.FileName;
+                lock (_data.DataLock)
+                {
+                    if (!_data.GameData.ContainsKey(gameName))
+                        _data.GameData[gameName] = new GameData();
+                    _data.GameData[gameName].launch_exe = newPath;
+                    if (!_data.GameData[gameName].exe_paths.Contains(newPath))
+                        _data.GameData[gameName].exe_paths.Add(newPath);
+                }
+
+                _data.SaveGameData();
+                // Update the ViewModel in-place so card tooltip refreshes
+                vm.LaunchExe = newPath;
+                // Also rebuild the collection to pick up any exe_paths changes
+                PopulateGameCollectionFromData();
+            }
+        }
         private void CardName_Click(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
             {
                 LaunchGame(vm.Name);
+            }
+        }
+        private void CardDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
+            {
+                var result = MessageBox.Show(
+                    $"确定要删除游戏 \"{vm.Name}\" 吗？\n此操作无法撤销。",
+                    "确认删除",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (result == MessageBoxResult.Yes)
+                {
+                    lock (_data.DataLock)
+                    {
+                        _data.GameData.Remove(vm.Name);
+                    }
+                    _data.SaveGameData();
+                    RefreshUI();
+                }
             }
         }
 

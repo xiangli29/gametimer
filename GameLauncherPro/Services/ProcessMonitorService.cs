@@ -13,7 +13,7 @@ namespace GameLauncherPro.Services
     public class ProcessMonitorService
     {
         private readonly GameDataService _data;
-        private readonly Action _onRefreshUI;
+        private readonly Action<bool> _onTick;
         private readonly Action _onScheduleSave;
 
         private const int CHECK_INTERVAL = 5;
@@ -23,16 +23,19 @@ namespace GameLauncherPro.Services
 
         private readonly Dictionary<string, DateTime> _runningGameStartTimes = new();
         private readonly Dictionary<string, string> _runningGameExePaths = new();
+        // PID cache: full Process.GetProcesses() only every 30s
+        private readonly Dictionary<string, int> _trackedPids = new(StringComparer.OrdinalIgnoreCase);
+        private int _tickCounter;
 
         public HashSet<string> CachedExes { get; } = new(StringComparer.OrdinalIgnoreCase);
         public IReadOnlyDictionary<string, string> RunningGameExePaths => _runningGameExePaths;
 
         public event Action<string, bool>? RunningStateUpdated;
 
-        public ProcessMonitorService(GameDataService data, Action onRefreshUI, Action onScheduleSave)
+        public ProcessMonitorService(GameDataService data, Action<bool> onTick, Action onScheduleSave)
         {
             _data = data ?? throw new ArgumentNullException(nameof(data));
-            _onRefreshUI = onRefreshUI ?? throw new ArgumentNullException(nameof(onRefreshUI));
+            _onTick = onTick ?? throw new ArgumentNullException(nameof(onTick));
             _onScheduleSave = onScheduleSave ?? throw new ArgumentNullException(nameof(onScheduleSave));
         }
 
@@ -83,33 +86,75 @@ namespace GameLauncherPro.Services
                 try
                 {
                     if (string.IsNullOrEmpty(_data.GameRootDir)) return;
+                    // Full scan control: first tick + every 30s
+                    _tickCounter++;
+                    bool doFullScan = _tickCounter == 1 || _tickCounter >= 6;
+                    if (doFullScan && _tickCounter >= 6) _tickCounter = 0;
+
                     int currentPid = Process.GetCurrentProcess().Id;
-                    var runningExes = new List<string>();
-                    var runningDisplay = new List<string>();
-                    foreach (var process in Process.GetProcesses())
+                    var runningExes = new List<string>(_trackedPids.Count + 4);
+
+                    if (doFullScan)
                     {
-                        try
+                        // Full scan: enumerate all processes (only every 30s)
+                        foreach (var process in Process.GetProcesses())
                         {
-                            if (process.Id == currentPid) continue;
-                            if (!CachedExes.Contains(process.ProcessName)) continue;
-                            if (string.IsNullOrEmpty(process.MainWindowTitle)) continue;
-                            string? exePath = null;
-                            try { exePath = process.MainModule?.FileName; } catch { }
-                            if (string.IsNullOrEmpty(exePath)) continue;
-                            if (!exePath.StartsWith(_data.GameRootDir, StringComparison.OrdinalIgnoreCase)) continue;
-                            string gameName = Path.GetFileName(Path.GetDirectoryName(exePath) ?? "未知游戏");
-                            lock (_data.DataLock)
+                            try
                             {
-                                _runningGameExePaths[gameName] = exePath;
-                                if (!_runningGameStartTimes.ContainsKey(gameName)) _runningGameStartTimes[gameName] = DateTime.Now;
+                                if (!TryMatchProcess(process, currentPid, out var gameName, out var exePath))
+                                    continue;
                                 runningExes.Add(gameName);
-                                int elapsed = (int)(DateTime.Now - _runningGameStartTimes[gameName]).TotalSeconds;
-                                runningDisplay.Add(gameName + " | 已游玩：" + FormatTime(elapsed));
+                                AddOrUpdateRunningGame(gameName, exePath);
+                                _trackedPids[gameName] = process.Id;
+                            }
+                            catch { }
+                        }
+                    }
+                    else
+                    {
+                        // Lightweight: only check cached PIDs (no system-wide enumeration)
+                        foreach (var kv in _trackedPids.ToList())
+                        {
+                            try
+                            {
+                                var p = Process.GetProcessById(kv.Value);
+                                if (p.HasExited) continue;
+                                if (string.IsNullOrEmpty(p.MainWindowTitle)) continue;
+                                if (!CachedExes.Contains(p.ProcessName)) continue;
+                                string? exePath = null;
+                                try { exePath = p.MainModule?.FileName; } catch { }
+                                if (string.IsNullOrEmpty(exePath)) continue;
+                                if (!exePath.StartsWith(_data.GameRootDir, StringComparison.OrdinalIgnoreCase)) continue;
+
+                                runningExes.Add(kv.Key);
+                                lock (_data.DataLock)
+                                {
+                                    _runningGameExePaths[kv.Key] = exePath;
+                                }
+                            }
+                            catch
+                            {
+                                // PID no longer exists, handled by stopped-games logic below
                             }
                         }
-                        catch { }
                     }
-                    RunningStateUpdated?.Invoke(string.Join("\n", runningDisplay) + (runningDisplay.Count > 0 ? "\n" : ""), runningDisplay.Count > 0);
+
+                    // Build display text (outside the lock!)
+                    var runningDisplay = new List<string>(runningExes.Count);
+                    foreach (var gameName in runningExes)
+                    {
+                        int elapsed;
+                        lock (_data.DataLock)
+                        {
+                            elapsed = _runningGameStartTimes.TryGetValue(gameName, out var start)
+                                ? (int)(DateTime.Now - start).TotalSeconds
+                                : 0;
+                        }
+                        runningDisplay.Add(gameName + " | " + FormatTime(elapsed));
+                    }
+                    RunningStateUpdated?.Invoke(
+                        runningDisplay.Count > 0 ? string.Join("\n", runningDisplay) + "\n" : "",
+                        runningDisplay.Count > 0);
                     var stoppedGames = new List<string>();
                     lock (_data.DataLock)
                     {
@@ -132,16 +177,44 @@ namespace GameLauncherPro.Services
                         foreach (var g in stoppedGames) { _runningGameStartTimes.Remove(g); _runningGameExePaths.Remove(g); }
                     }
                     if (stoppedGames.Count > 0) _onScheduleSave();
-                    _onRefreshUI();
+                    _onTick(stoppedGames.Count > 0);
                 }
                 finally { _isMonitoringBusy = false; }
             });
         }
 
-        private static string FormatTime(int seconds)
+        
+        private bool TryMatchProcess(Process process, int currentPid, out string gameName, out string exePath)
+        {
+            gameName = null!;
+            exePath = null!;
+
+            if (process.Id == currentPid) return false;
+            if (!CachedExes.Contains(process.ProcessName)) return false;
+            if (string.IsNullOrEmpty(process.MainWindowTitle)) return false;
+
+            try { exePath = process.MainModule?.FileName ?? ""; } catch { return false; }
+            if (string.IsNullOrEmpty(exePath)) return false;
+            if (!exePath.StartsWith(_data.GameRootDir, StringComparison.OrdinalIgnoreCase)) return false;
+
+            gameName = Path.GetFileName(Path.GetDirectoryName(exePath) ?? "\u672a\u77e5\u6e38\u620f");
+            return true;
+        }
+
+        private void AddOrUpdateRunningGame(string gameName, string exePath)
+        {
+            lock (_data.DataLock)
+            {
+                _runningGameExePaths[gameName] = exePath;
+                if (!_runningGameStartTimes.ContainsKey(gameName))
+                    _runningGameStartTimes[gameName] = DateTime.Now;
+            }
+        }
+
+private static string FormatTime(int seconds)
         {
             int h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60;
-            return h.ToString("00") + "小时" + m.ToString("00") + "分钟" + s.ToString("00") + "秒";
+            return h.ToString("00") + "\u5c0f\u65f6" + m.ToString("00") + "\u5206\u949f" + s.ToString("00") + "\u79d2";
         }
     }
 }

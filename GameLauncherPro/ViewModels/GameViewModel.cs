@@ -64,6 +64,33 @@ namespace GameLauncherPro.ViewModels
 
         public string LaunchExe { get; set; } = "";
 
+        private List<string> _exePaths = new();
+        public List<string> ExePaths { get => _exePaths; set { _exePaths = value; Raise(nameof(ExePaths)); Raise(nameof(LaunchExeDisplay)); } }
+
+        private int _selectedExeIndex;
+        public int SelectedExeIndex { get => _selectedExeIndex; set { _selectedExeIndex = value; Raise(nameof(SelectedExeIndex)); Raise(nameof(LaunchExeDisplay)); Raise(nameof(LaunchExe)); } }
+
+        /// <summary>Tooltip: show full path of current launch exe</summary>
+        public string LaunchExeDisplay
+        {
+            get
+            {
+                if (ExePaths.Count == 0) return "";
+                int idx = SelectedExeIndex;
+                if (idx < 0 || idx >= ExePaths.Count) idx = 0;
+                var path = ExePaths[idx];
+                return System.IO.Path.GetFileName(path) + "\n" + path;
+            }
+        }
+
+        /// <summary>Cycle to the next available exe path</summary>
+        public void CycleLaunchExe()
+        {
+            if (ExePaths.Count <= 1) return;
+            SelectedExeIndex = (SelectedExeIndex + 1) % ExePaths.Count;
+            LaunchExe = ExePaths[SelectedExeIndex];
+        }
+
         public void UpdateFromGameData(string name, GameLauncherPro.GameData data)
         {
             if (data == null) return;
@@ -73,6 +100,14 @@ namespace GameLauncherPro.ViewModels
             Score = data.score;
             CurrentSide = string.IsNullOrEmpty(data.current_side) ? "front" : data.current_side;
             LaunchExe = data.launch_exe ?? "";
+
+            // Populate exe paths
+            var paths = data.exe_paths ?? new();
+            if (!string.IsNullOrEmpty(data.launch_exe) && !paths.Contains(data.launch_exe))
+                paths.Insert(0, data.launch_exe);
+            ExePaths = paths;
+            int idx = ExePaths.IndexOf(data.launch_exe ?? "");
+            SelectedExeIndex = idx >= 0 ? idx : 0;
         }
 
         private string FormatTime(int seconds)
