@@ -852,6 +852,36 @@ namespace GameLauncherPro
                 }
             }
         }
+        private void CardRename_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is GameViewModel vm)
+            {
+                var oldName = vm.Name;
+                var input = Microsoft.VisualBasic.Interaction.InputBox(
+                    $"为游戏 \"{oldName}\" 输入新名称：",
+                    "重命名游戏", oldName);
+                if (string.IsNullOrWhiteSpace(input)) return;
+                var newName = input.Trim();
+                if (newName == oldName) return;
+                lock (_data.DataLock)
+                {
+                    if (_data.GameData.ContainsKey(newName))
+                    {
+                        MessageBox.Show($"游戏 \"{newName}\" 已存在，请使用其他名称。", "重命名失败",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    if (_data.GameData.Remove(oldName, out var data))
+                    {
+                        _data.GameData[newName] = data;
+                    }
+                }
+                vm.Name = newName;
+                _data.SaveGameData();
+                PopulateGameCollectionFromData();
+                if (gameDataDirty) { RenderGameLibrary(); gameDataDirty = false; }
+            }
+        }
 
         // ====================== 封面/启动游戏 ======================
         private void SetCover(string gameName)

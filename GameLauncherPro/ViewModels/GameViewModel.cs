@@ -11,7 +11,8 @@ namespace GameLauncherPro.ViewModels
 
         private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-        public string Name { get; set; } = "";
+        private string _name = "";
+        public string Name { get => _name; set { _name = value; Raise(nameof(Name)); } }
 
         private int total_seconds;
         public int TotalSeconds { get => total_seconds; set { total_seconds = value; Raise(nameof(TotalSeconds)); Raise(nameof(DisplayTotal)); Raise(nameof(DisplayPlayTime)); } }

@@ -142,7 +142,12 @@
                                                         <Button Content="◨" Width="30" Height="26"
                                                                 Style="{StaticResource GoldButton}"
                                                                 FontSize="13" Padding="0" Margin="3,0"
-                                                                ToolTip="设置反面封面" Click="CardSetBack_Click"/>
+                                                               ToolTip="设置反面封面" Click="CardSetBack_Click"/>
+                                                        <Button Content="✎" Width="30" Height="26"
+                                                                Style="{StaticResource GoldButton}"
+                                                                FontSize="13" Padding="0" Margin="3,0"
+                                                                ToolTip="重命名游戏"
+                                                                Click="CardRename_Click"/>
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal"
                                                                 HorizontalAlignment="Center" Margin="0,2,0,0">
