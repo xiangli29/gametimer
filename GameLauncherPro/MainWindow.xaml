@@ -1,4 +1,4 @@
-﻿<Window x:Class="GameLauncherPro.MainWindow"
+<Window x:Class="GameLauncherPro.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
@@ -27,6 +27,64 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                       Background="{DynamicResource MainBgRadialBrush}">
             <StackPanel Margin="12,8">
+                <!-- ─── 实时运行 + 历史记录 ─── -->
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="14"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 实时运行 -->
+                    <Border Style="{StaticResource GameCard}" Grid.Column="0" Padding="14,12">
+                        <DockPanel>
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8"
+                                        HorizontalAlignment="Center">
+                                <Ellipse x:Name="RunningIndicator" Width="8" Height="8"
+                                         Fill="#3FB950" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="实时运行" FontSize="14"
+                                           Foreground="{StaticResource GoldBrush}" FontWeight="Bold">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect Color="#35D4A574" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/>
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </StackPanel>
+                            <Button x:Name="Btn_AddGame" Content="＋ 加入库"
+                                    Style="{StaticResource AccentButton}"
+                                    Click="Btn_AddGame_Click" Margin="0,0,0,6" DockPanel.Dock="Top"
+                                    HorizontalAlignment="Left"/>
+                            <ScrollViewer Height="160">
+                                <TextBox x:Name="Tb_Running"
+                                         Background="{StaticResource PlaceholderBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         IsReadOnly="True" FontSize="12" FontFamily="Consolas"
+                                         BorderThickness="0"/>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- 历史记录 -->
+                    <Border Style="{StaticResource GameCard}" Grid.Column="2" Padding="14,12">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock Text="历史记录" FontSize="14"
+                                           Foreground="{StaticResource GoldBrush}" FontWeight="Bold"
+                                           HorizontalAlignment="Center">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect Color="#35D4A574" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/>
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Border>
+                            <ScrollViewer Height="200">
+                                <TextBox x:Name="Tb_Record"
+                                         Background="{StaticResource PlaceholderBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         IsReadOnly="True" FontSize="12" FontFamily="Consolas"
+                                         BorderThickness="0"/>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
 
                 <!-- ─── 游戏库 ─── -->
                 <Border Style="{StaticResource GameCard}" Margin="0,0,0,10" Padding="16,14">
@@ -83,27 +141,27 @@
                                           ItemsSource="{Binding Games}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <ctrls:VirtualizingWrapPanel ItemWidth="252" ItemHeight="398"/>
+                                        <ctrls:VirtualizingWrapPanel ItemWidth="296" ItemHeight="467"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="240" Height="386" Margin="6"
+                                        <Border Width="282" Height="453" Margin="6"
                                                 Style="{StaticResource GameCardHover}">
                                             <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="*"/>
                                                     <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
-                                                <Grid Width="216" Height="280" HorizontalAlignment="Center"
+                                                <Grid Width="254" Height="329" HorizontalAlignment="Center"
                                                       Margin="0,6,0,0">
-                                                    <Rectangle Width="196" Height="240"
+                                                    <Rectangle Width="230" Height="282"
                                                                Fill="{StaticResource PlaceholderBrush}"
                                                                RadiusX="6" RadiusY="6"/>
-                                                    <Image Width="216" Height="280" Stretch="UniformToFill"
+                                                    <Image Width="254" Height="329" Stretch="UniformToFill"
                                                            Source="{Binding FrontImage}"
                                                            Visibility="{Binding IsFrontVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                                    <Image Width="216" Height="280" Stretch="UniformToFill"
+                                                    <Image Width="254" Height="329" Stretch="UniformToFill"
                                                            Source="{Binding BackImage}"
                                                            Visibility="{Binding IsBackVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                                 </Grid>
@@ -175,65 +233,6 @@
                         </ScrollViewer>
                     </Grid>
                 </Border>
-
-                <!-- ─── 实时运行 + 历史记录 ─── -->
-                <Grid Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="14"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- 实时运行 -->
-                    <Border Style="{StaticResource GameCard}" Grid.Column="0" Padding="14,12">
-                        <DockPanel>
-                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8"
-                                        HorizontalAlignment="Center">
-                                <Ellipse x:Name="RunningIndicator" Width="8" Height="8"
-                                         Fill="#3FB950" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="实时运行" FontSize="14"
-                                           Foreground="{StaticResource GoldBrush}" FontWeight="Bold">
-                                    <TextBlock.Effect>
-                                        <DropShadowEffect Color="#35D4A574" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/>
-                                    </TextBlock.Effect>
-                                </TextBlock>
-                            </StackPanel>
-                            <Button x:Name="Btn_AddGame" Content="＋ 加入库"
-                                    Style="{StaticResource AccentButton}"
-                                    Click="Btn_AddGame_Click" Margin="0,0,0,6" DockPanel.Dock="Top"
-                                    HorizontalAlignment="Left"/>
-                            <ScrollViewer Height="160">
-                                <TextBox x:Name="Tb_Running"
-                                         Background="{StaticResource PlaceholderBrush}"
-                                         Foreground="{StaticResource TextPrimaryBrush}"
-                                         IsReadOnly="True" FontSize="12" FontFamily="Consolas"
-                                         BorderThickness="0"/>
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- 历史记录 -->
-                    <Border Style="{StaticResource GameCard}" Grid.Column="2" Padding="14,12">
-                        <DockPanel>
-                            <Border DockPanel.Dock="Top" Margin="0,0,0,8">
-                                <TextBlock Text="历史记录" FontSize="14"
-                                           Foreground="{StaticResource GoldBrush}" FontWeight="Bold"
-                                           HorizontalAlignment="Center">
-                                    <TextBlock.Effect>
-                                        <DropShadowEffect Color="#35D4A574" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/>
-                                    </TextBlock.Effect>
-                                </TextBlock>
-                            </Border>
-                            <ScrollViewer Height="200">
-                                <TextBox x:Name="Tb_Record"
-                                         Background="{StaticResource PlaceholderBrush}"
-                                         Foreground="{StaticResource TextPrimaryBrush}"
-                                         IsReadOnly="True" FontSize="12" FontFamily="Consolas"
-                                         BorderThickness="0"/>
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
-                </Grid>
 
                 <!-- ─── 图表 ─── -->
                 <Border Style="{StaticResource GameCard}" Margin="0,0,0,10" Padding="16,14" Height="340">
