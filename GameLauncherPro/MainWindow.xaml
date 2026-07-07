@@ -1,0 +1,483 @@
+<Window x:Class="GameLauncherPro.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrls="clr-namespace:GameLauncherPro.Controls"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+        Title="GameLauncherPro 典藏版"
+        Width="1400"
+        Height="900"
+        WindowState="Maximized"
+        Background="{DynamicResource MainBgRadialBrush}">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <Style TargetType="ListBox">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            </Style>
+            <Style TargetType="ListBoxItem">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <ContentPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource HeaderPanel}">
+            <Grid>
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="GameLauncherPro"
+                               FontSize="28"
+                               FontFamily="Segoe UI"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource GoldBrush}"
+                               VerticalAlignment="Center">
+                        <TextBlock.Effect>
+                            <DropShadowEffect Color="#40D4A574"
+                                              BlurRadius="8"
+                                              ShadowDepth="0"
+                                              Opacity="0.5" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock Text="典藏版"
+                               Margin="10,0,0,0"
+                               FontSize="13"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <Button x:Name="Btn_ChangeFolder"
+                            Content="切换游戏文件夹"
+                            Style="{StaticResource GoldButton}"
+                            Click="Btn_ChangeFolder_Click" />
+                    <Button x:Name="Btn_Refresh"
+                            Content="刷新数据"
+                            Margin="6,0,0,0"
+                            Style="{StaticResource GoldButton}"
+                            Click="Btn_Refresh_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      Background="{DynamicResource MainBgRadialBrush}"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="12,8">
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Padding="14,12"
+                            Style="{StaticResource GameCard}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,0,0,8">
+                                <Ellipse x:Name="RunningIndicator"
+                                         Width="8"
+                                         Height="8"
+                                         Margin="0,0,8,0"
+                                         VerticalAlignment="Center"
+                                         Fill="#3FB950" />
+                                <TextBlock Text="实时运行"
+                                           FontSize="14"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource GoldBrush}">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect Color="#35D4A574"
+                                                          BlurRadius="5"
+                                                          ShadowDepth="0"
+                                                          Opacity="0.5" />
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </StackPanel>
+                            <Button x:Name="Btn_AddGame"
+                                    Content="将当前游戏加入库"
+                                    DockPanel.Dock="Top"
+                                    Margin="0,0,0,6"
+                                    HorizontalAlignment="Left"
+                                    Style="{StaticResource AccentButton}"
+                                    Click="Btn_AddGame_Click" />
+                            <ScrollViewer Height="160">
+                                <TextBox x:Name="Tb_Running"
+                                         IsReadOnly="True"
+                                         FontSize="12"
+                                         FontFamily="Consolas"
+                                         BorderThickness="0"
+                                         Background="{StaticResource PlaceholderBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Column="2"
+                            Padding="14,12"
+                            Style="{StaticResource GameCard}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock Text="历史记录"
+                                           FontSize="14"
+                                           FontWeight="Bold"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{StaticResource GoldBrush}">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect Color="#35D4A574"
+                                                          BlurRadius="5"
+                                                          ShadowDepth="0"
+                                                          Opacity="0.5" />
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Border>
+                            <ScrollViewer Height="200">
+                                <TextBox x:Name="Tb_Record"
+                                         IsReadOnly="True"
+                                         FontSize="12"
+                                         FontFamily="Consolas"
+                                         BorderThickness="0"
+                                         Background="{StaticResource PlaceholderBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+
+                <Border Margin="0,0,0,10"
+                        Padding="16,14"
+                        Style="{StaticResource GameCard}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,0,0,10">
+                            <TextBlock Text="游戏库"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource GoldBrush}">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#35D4A574"
+                                                      BlurRadius="5"
+                                                      ShadowDepth="0"
+                                                      Opacity="0.5" />
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            <TextBlock x:Name="Tb_GameCount"
+                                       Margin="10,0,0,0"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1"
+                                    Orientation="Horizontal"
+                                    Margin="0,0,0,10">
+                            <TextBox x:Name="Tb_Search"
+                                     Width="220"
+                                     Margin="0,0,10,0"
+                                     VerticalAlignment="Center"
+                                     TextChanged="Tb_Search_TextChanged" />
+                            <ComboBox x:Name="Cb_Filter"
+                                      Width="200"
+                                      Margin="0,0,10,0"
+                                      VerticalAlignment="Center"
+                                      SelectedIndex="2"
+                                      SelectionChanged="Cb_Filter_SelectionChanged">
+                                <ComboBoxItem Content="默认" />
+                                <ComboBoxItem Content="按游玩时间（从大到小）" />
+                                <ComboBoxItem Content="按最近打开（从近到远）" />
+                                <ComboBoxItem Content="按评分（从高到低）" />
+                            </ComboBox>
+
+                            <TextBlock Text="图表刷新："
+                                       Margin="12,0,6,0"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                            <RadioButton x:Name="Rb_Manual"
+                                         Content="手动"
+                                         GroupName="AutoRefreshMode"
+                                         Margin="4,0"
+                                         Checked="Rb_AutoManual_Checked" />
+                            <RadioButton x:Name="Rb_AutoOnAC"
+                                         Content="插电"
+                                         GroupName="AutoRefreshMode"
+                                         Margin="4,0"
+                                         Checked="Rb_AutoOnAC_Checked" />
+                            <RadioButton x:Name="Rb_Always"
+                                         Content="始终"
+                                         GroupName="AutoRefreshMode"
+                                         Margin="4,0"
+                                         Checked="Rb_AutoAlways_Checked" />
+                            <CheckBox x:Name="Cb_StrongPower"
+                                      Content="强省电"
+                                      Margin="14,0,0,0"
+                                      FontSize="12"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      Checked="Cb_StrongPower_Checked"
+                                      Unchecked="Cb_StrongPower_Checked" />
+                        </StackPanel>
+
+                        <ListBox Grid.Row="2"
+                                 x:Name="GamePanel"
+                                 Height="520"
+                                 ItemsSource="{Binding GamesView}">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ctrls:VirtualizingWrapPanel ItemWidth="296"
+                                                                 ItemHeight="467" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="282"
+                                            Height="453"
+                                            Margin="6"
+                                            Style="{StaticResource GameCardHover}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid Width="254"
+                                                  Height="329"
+                                                  HorizontalAlignment="Center"
+                                                  Margin="0,6,0,0">
+                                                <Rectangle Width="230"
+                                                           Height="282"
+                                                           RadiusX="6"
+                                                           RadiusY="6"
+                                                           Fill="{StaticResource PlaceholderBrush}" />
+                                                <Image Width="254"
+                                                       Height="329"
+                                                       Stretch="UniformToFill"
+                                                       Source="{Binding FrontImage}"
+                                                       Visibility="{Binding IsFrontVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                <Image Width="254"
+                                                       Height="329"
+                                                       Stretch="UniformToFill"
+                                                       Source="{Binding BackImage}"
+                                                       Visibility="{Binding IsBackVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            </Grid>
+                                            <StackPanel Grid.Row="1"
+                                                        Orientation="Vertical"
+                                                        HorizontalAlignment="Center"
+                                                        Margin="0,4,0,6">
+                                                <Button Content="{Binding Name}"
+                                                        Margin="0,2,0,2"
+                                                        Padding="0"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Cursor="Hand"
+                                                        FontSize="13"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="{StaticResource TextPrimaryBrush}"
+                                                        ToolTip="点击启动游戏"
+                                                        Click="CardName_Click" />
+                                                <TextBlock Text="{Binding StarsDisplay}"
+                                                           Margin="0,1,0,1"
+                                                           FontSize="13"
+                                                           TextAlignment="Center"
+                                                           Foreground="{StaticResource GoldBrush}"
+                                                           ToolTip="{Binding Score, StringFormat=评分：{0}/10}" />
+                                                <TextBlock Text="{Binding DisplayPlayTime}"
+                                                           Margin="0,1,0,4"
+                                                           FontSize="10"
+                                                           TextAlignment="Center"
+                                                           Foreground="{StaticResource TextSecondaryBrush}" />
+                                                <StackPanel Orientation="Horizontal"
+                                                            HorizontalAlignment="Center">
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Padding="0"
+                                                            FontSize="13"
+                                                            Content="↔"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="翻转卡片"
+                                                            Click="CardFlip_Click" />
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Margin="3,0"
+                                                            Padding="0"
+                                                            FontSize="13"
+                                                            Content="★"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="设置评分"
+                                                            Click="CardSetScore_Click" />
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Padding="0"
+                                                            FontSize="13"
+                                                            Content="F"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="设置正面封面"
+                                                            Click="CardSetFront_Click" />
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Margin="3,0"
+                                                            Padding="0"
+                                                            FontSize="13"
+                                                            Content="B"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="设置背面封面"
+                                                            Click="CardSetBack_Click" />
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Margin="3,0"
+                                                            Padding="0"
+                                                            FontSize="13"
+                                                            Content="✎"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="重命名游戏"
+                                                            Click="CardRename_Click" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal"
+                                                            HorizontalAlignment="Center"
+                                                            Margin="0,2,0,0">
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Padding="0"
+                                                            FontSize="13"
+                                                            Content="⏱"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="修改时长"
+                                                            Click="CardAddTime_Click" />
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Margin="3,0"
+                                                            Padding="0"
+                                                            FontSize="13"
+                                                            Content="▶"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="{Binding LaunchExeDisplay}"
+                                                            Click="CardSwitchExe_Click" />
+                                                    <Button Width="30"
+                                                            Height="26"
+                                                            Margin="3,0"
+                                                            Padding="0"
+                                                            FontSize="11"
+                                                            Content="✕"
+                                                            Style="{StaticResource GoldButton}"
+                                                            ToolTip="删除此游戏"
+                                                            Click="CardDelete_Click" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+
+                <Border Margin="0,0,0,10"
+                        Padding="16,14"
+                        Height="340"
+                        Style="{StaticResource GameCard}">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <TextBlock Text="游戏时长统计"
+                                       FontSize="14"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{StaticResource GoldBrush}">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#35D4A574"
+                                                      BlurRadius="5"
+                                                      ShadowDepth="0"
+                                                      Opacity="0.5" />
+                                </TextBlock.Effect>
+                            </TextBlock>
+                        </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="240" />
+                            </Grid.ColumnDefinitions>
+                            <lvc:CartesianChart x:Name="Lc_BarChart"
+                                                Grid.Column="0"
+                                                Margin="6"
+                                                Background="{StaticResource ChartBgBrush}" />
+                            <lvc:PieChart x:Name="Lc_PieChart"
+                                          Grid.Column="1"
+                                          Margin="6"
+                                          Background="{StaticResource ChartBgBrush}" />
+                            <ScrollViewer Grid.Column="2" Margin="6,0">
+                                <TextBlock x:Name="Tb_Rank"
+                                           Padding="10,4"
+                                           FontSize="12"
+                                           FontFamily="Consolas"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                            </ScrollViewer>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Padding="16,4"
+                Background="{StaticResource StatusBarGradientBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0">
+            <DockPanel>
+                <TextBlock x:Name="Tb_StatusDir"
+                           MaxWidth="600"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{StaticResource TextMutedBrush}" />
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <TextBlock x:Name="Tb_StatusTotal"
+                               Margin="0,0,20,0"
+                               FontSize="11"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock x:Name="Tb_StatusNum"
+                               FontSize="11"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

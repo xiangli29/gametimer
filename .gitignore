@@ -1,0 +1,44 @@
+# Visual Studio user settings and cache
+.vs/
+
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.suo
+*.user
+*.sln.docstates
+
+# .NET Core / SDK
+*.nupkg
+*.snupkg
+project.lock.json
+
+# NuGet
+*.nuget.props
+*.nuget.targets
+
+# ReSharper / Rider
+_ReSharper.Caches/
+*.sln.iml
+.idea/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Publish output
+[Pp]ublish/
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
+# OSX
+.DS_Store
