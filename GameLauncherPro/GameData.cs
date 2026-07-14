@@ -9,6 +9,7 @@ namespace GameLauncherPro
         public List<string> exe_paths { get; set; } = new();
         public string cover_path { get; set; } = "";
         public string cover_back_path { get; set; } = "";
+        public List<string> screenshot_paths { get; set; } = new();
         // 当前显示面："front" 或 "back"
         public string current_side { get; set; } = "front";
         // 用户评分：0-10

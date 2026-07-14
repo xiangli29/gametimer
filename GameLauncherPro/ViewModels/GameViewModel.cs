@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Media;
+using MediaBrush = System.Windows.Media.Brush;
 
 namespace GameLauncherPro.ViewModels
 {
@@ -51,6 +53,16 @@ namespace GameLauncherPro.ViewModels
                 _score = value;
                 Raise(nameof(Score));
                 Raise(nameof(StarsDisplay));
+                Raise(nameof(ScoreTile1Brush));
+                Raise(nameof(ScoreTile2Brush));
+                Raise(nameof(ScoreTile3Brush));
+                Raise(nameof(ScoreTile4Brush));
+                Raise(nameof(ScoreTile5Brush));
+                Raise(nameof(ScoreTile6Brush));
+                Raise(nameof(ScoreTile7Brush));
+                Raise(nameof(ScoreTile8Brush));
+                Raise(nameof(ScoreTile9Brush));
+                Raise(nameof(ScoreTile10Brush));
             }
         }
 
@@ -68,6 +80,22 @@ namespace GameLauncherPro.ViewModels
                 return stars.ToString();
             }
         }
+
+        private static readonly MediaBrush ScoreTileFilledBrush = CreateBrush(0xC9, 0x9C, 0x5D);
+        private static readonly MediaBrush ScoreTileEmptyBrush = CreateBrush(0x4A, 0x3B, 0x2E);
+
+        public MediaBrush ScoreTile1Brush => GetScoreTileBrush(1);
+        public MediaBrush ScoreTile2Brush => GetScoreTileBrush(2);
+        public MediaBrush ScoreTile3Brush => GetScoreTileBrush(3);
+        public MediaBrush ScoreTile4Brush => GetScoreTileBrush(4);
+        public MediaBrush ScoreTile5Brush => GetScoreTileBrush(5);
+        public MediaBrush ScoreTile6Brush => GetScoreTileBrush(6);
+        public MediaBrush ScoreTile7Brush => GetScoreTileBrush(7);
+        public MediaBrush ScoreTile8Brush => GetScoreTileBrush(8);
+        public MediaBrush ScoreTile9Brush => GetScoreTileBrush(9);
+        public MediaBrush ScoreTile10Brush => GetScoreTileBrush(10);
+
+        public ObservableCollection<ScreenshotViewModel> Screenshots { get; } = new();
 
         private ImageSource? _frontImage;
         public ImageSource? FrontImage { get => _frontImage; set { _frontImage = value; Raise(nameof(FrontImage)); } }
@@ -179,6 +207,7 @@ namespace GameLauncherPro.ViewModels
             BackImagePath = data.cover_back_path ?? "";
             CurrentSide = string.IsNullOrWhiteSpace(data.current_side) ? "front" : data.current_side;
             LaunchExe = data.launch_exe ?? "";
+            UpdateScreenshots(data.screenshot_paths);
 
             var paths = data.exe_paths is null ? new List<string>() : new List<string>(data.exe_paths);
             if (!string.IsNullOrWhiteSpace(data.launch_exe) && !paths.Contains(data.launch_exe))
@@ -189,6 +218,33 @@ namespace GameLauncherPro.ViewModels
             ExePaths = paths;
             var launchIndex = ExePaths.IndexOf(data.launch_exe ?? "");
             SelectedExeIndex = launchIndex >= 0 ? launchIndex : 0;
+        }
+
+        private void UpdateScreenshots(IEnumerable<string>? screenshotPaths)
+        {
+            Screenshots.Clear();
+            if (screenshotPaths is null)
+            {
+                return;
+            }
+
+            foreach (var path in screenshotPaths)
+            {
+                if (!string.IsNullOrWhiteSpace(path))
+                {
+                    Screenshots.Add(new ScreenshotViewModel(path));
+                }
+            }
+        }
+
+        private MediaBrush GetScoreTileBrush(int tileScore) =>
+            Score >= tileScore ? ScoreTileFilledBrush : ScoreTileEmptyBrush;
+
+        private static MediaBrush CreateBrush(byte red, byte green, byte blue)
+        {
+            var brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue));
+            brush.Freeze();
+            return brush;
         }
 
         private static string FormatTime(int seconds)

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using GameLauncherPro.Services;
@@ -18,12 +21,15 @@ using Microsoft.Win32;
 using WinForms = System.Windows.Forms;
 using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using MediaColor = System.Windows.Media.Color;
 
 namespace GameLauncherPro
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         private readonly GameDataService _data = new();
         private readonly ChartService _chartService = new();
         private readonly ImageCacheService _imageCache;
@@ -39,6 +45,8 @@ namespace GameLauncherPro
 
         private CartesianChart? _barChart;
         private PieChart? _pieChart;
+        private GameViewModel? _selectedGame;
+        private int _screenshotIndex;
 
         public MainWindow()
         {
@@ -58,6 +66,7 @@ namespace GameLauncherPro
 
             ApplyConfigToUI();
             ApplyLibraryViewState();
+            ShowPage("library");
             _ = ReloadDataViewsAsync(includeCharts: true);
 
             Loaded += (_, _) => HookNestedScrolling(this);
@@ -65,6 +74,64 @@ namespace GameLauncherPro
         }
 
         public System.ComponentModel.ICollectionView GamesView => _library.GamesView;
+
+        public GameViewModel? SelectedGame
+        {
+            get => _selectedGame;
+            private set
+            {
+                if (ReferenceEquals(_selectedGame, value))
+                {
+                    return;
+                }
+
+                _selectedGame = value;
+                _screenshotIndex = 0;
+                RaisePropertyChanged(nameof(SelectedGame));
+                RaisePropertyChanged(nameof(HasSelectedGame));
+                RaiseScreenshotNavigationProperties();
+            }
+        }
+
+        public bool HasSelectedGame => SelectedGame is not null;
+
+        public ScreenshotViewModel? CurrentScreenshot
+        {
+            get
+            {
+                if (SelectedGame is null || SelectedGame.Screenshots.Count == 0)
+                {
+                    return null;
+                }
+
+                var index = Math.Clamp(_screenshotIndex, 0, SelectedGame.Screenshots.Count - 1);
+                return SelectedGame.Screenshots[index];
+            }
+        }
+
+        public bool HasScreenshots => CurrentScreenshot is not null;
+
+        public bool CanShowPreviousScreenshot => SelectedGame is not null && _screenshotIndex > 0;
+
+        public bool CanShowNextScreenshot =>
+            SelectedGame is not null && _screenshotIndex < SelectedGame.Screenshots.Count - 1;
+
+        public string ScreenshotPositionText =>
+            SelectedGame is null || SelectedGame.Screenshots.Count == 0
+                ? "暂无截图"
+                : $"{_screenshotIndex + 1} / {SelectedGame.Screenshots.Count}";
+
+        private void RaisePropertyChanged(string propertyName) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        private void RaiseScreenshotNavigationProperties()
+        {
+            RaisePropertyChanged(nameof(CurrentScreenshot));
+            RaisePropertyChanged(nameof(HasScreenshots));
+            RaisePropertyChanged(nameof(CanShowPreviousScreenshot));
+            RaisePropertyChanged(nameof(CanShowNextScreenshot));
+            RaisePropertyChanged(nameof(ScreenshotPositionText));
+        }
 
         private void InitializeTimers()
         {
@@ -270,7 +337,7 @@ namespace GameLauncherPro
             var snapshot = _chartService.BuildSnapshot(_data.GetSnapshot());
             Tb_Rank.Text = snapshot.RankText;
 
-            var labelColor = new SkiaSharp.SKColor(0xA8, 0x90, 0x78);
+            var labelColor = new SkiaSharp.SKColor(0xC3, 0xB2, 0x9F);
             _barChart.XAxes = new[]
             {
                 new Axis
@@ -293,23 +360,23 @@ namespace GameLauncherPro
                 new ColumnSeries<double>
                 {
                     Values = snapshot.Values,
-                    Fill = new SolidColorPaint(new SkiaSharp.SKColor(0xD4, 0xA5, 0x74)),
-                    Stroke = new SolidColorPaint(new SkiaSharp.SKColor(0x8B, 0x5A, 0x2B)) { StrokeThickness = 1 }
+                    Fill = new SolidColorPaint(new SkiaSharp.SKColor(0xC9, 0x9C, 0x5D)),
+                    Stroke = new SolidColorPaint(new SkiaSharp.SKColor(0xE0, 0xB8, 0x76)) { StrokeThickness = 1 }
                 }
             };
 
             var pieColors = new[]
             {
-                new SkiaSharp.SKColor(0xD4, 0xA5, 0x74),
-                new SkiaSharp.SKColor(0x8B, 0x5A, 0x2B),
-                new SkiaSharp.SKColor(0xE8, 0xC5, 0x8A),
-                new SkiaSharp.SKColor(0xA0, 0x7A, 0x38),
-                new SkiaSharp.SKColor(0xF0, 0xD5, 0x9C),
-                new SkiaSharp.SKColor(0xC9, 0x8E, 0x4A),
-                new SkiaSharp.SKColor(0x9B, 0x76, 0x2F),
-                new SkiaSharp.SKColor(0xCC, 0xA0, 0x50),
-                new SkiaSharp.SKColor(0xB8, 0x86, 0x3B),
-                new SkiaSharp.SKColor(0xDA, 0xB0, 0x60)
+                new SkiaSharp.SKColor(0xC9, 0x9C, 0x5D),
+                new SkiaSharp.SKColor(0xA7, 0xC6, 0xD9),
+                new SkiaSharp.SKColor(0xF3, 0xC9, 0x69),
+                new SkiaSharp.SKColor(0xE5, 0x80, 0x72),
+                new SkiaSharp.SKColor(0xBA, 0x9A, 0xE8),
+                new SkiaSharp.SKColor(0xB6, 0xC4, 0x9A),
+                new SkiaSharp.SKColor(0xD0, 0xB4, 0x7B),
+                new SkiaSharp.SKColor(0xC7, 0x9B, 0xC9),
+                new SkiaSharp.SKColor(0x86, 0xA9, 0xA2),
+                new SkiaSharp.SKColor(0xD6, 0xA1, 0x69)
             };
 
             var pieSeries = new List<ISeries>(snapshot.OrderedGames.Count);
@@ -321,7 +388,7 @@ namespace GameLauncherPro
                     Values = new[] { (double)item.Value.total_seconds },
                     Name = item.Key,
                     Fill = new SolidColorPaint(pieColors[index % pieColors.Length]),
-                    Stroke = new SolidColorPaint(new SkiaSharp.SKColor(0x3A, 0x2E, 0x28)) { StrokeThickness = 1 }
+                    Stroke = new SolidColorPaint(new SkiaSharp.SKColor(0x24, 0x1D, 0x18)) { StrokeThickness = 1 }
                 });
             }
 
@@ -344,6 +411,43 @@ namespace GameLauncherPro
             Tb_StatusNum.Text = $"共 {snapshot.Count} 款游戏";
             Tb_StatusTotal.Text = $"总时长: {_chartService.FormatTime(totalSeconds)}";
             Tb_GameCount.Text = snapshot.Count > 0 ? $"({snapshot.Count} 款)" : "";
+            Tb_MonitorDirectory.Text = string.IsNullOrWhiteSpace(_data.GameRootDir)
+                ? "尚未选择游戏文件夹"
+                : _data.GameRootDir;
+
+            Tb_OverviewGameCount.Text = snapshot.Count.ToString();
+            Tb_OverviewTotalTime.Text = _chartService.FormatTime(totalSeconds);
+            var recent = snapshot
+                .Where(game => !string.IsNullOrWhiteSpace(game.Value.last_play))
+                .OrderByDescending(game => game.Value.last_play)
+                .FirstOrDefault();
+            Tb_OverviewRecentGame.Text = string.IsNullOrWhiteSpace(recent.Key)
+                ? "暂无游玩记录"
+                : recent.Key;
+        }
+
+        private void NavLibrary_Click(object sender, RoutedEventArgs e) => ShowPage("library");
+
+        private void NavOverview_Click(object sender, RoutedEventArgs e) => ShowPage("overview");
+
+        private void NavMonitor_Click(object sender, RoutedEventArgs e) => ShowPage("monitor");
+
+        private void ShowPage(string page)
+        {
+            LibraryPage.Visibility = page == "library" ? Visibility.Visible : Visibility.Collapsed;
+            OverviewPage.Visibility = page == "overview" ? Visibility.Visible : Visibility.Collapsed;
+            MonitorPage.Visibility = page == "monitor" ? Visibility.Visible : Visibility.Collapsed;
+
+            var selectedBackground = (System.Windows.Media.Brush)FindResource("NavSelectedBrush");
+            var selectedForeground = (System.Windows.Media.Brush)FindResource("TextPrimaryBrush");
+            var defaultForeground = (System.Windows.Media.Brush)FindResource("TextSecondaryBrush");
+
+            Btn_NavLibrary.Background = page == "library" ? selectedBackground : System.Windows.Media.Brushes.Transparent;
+            Btn_NavOverview.Background = page == "overview" ? selectedBackground : System.Windows.Media.Brushes.Transparent;
+            Btn_NavMonitor.Background = page == "monitor" ? selectedBackground : System.Windows.Media.Brushes.Transparent;
+            Btn_NavLibrary.Foreground = page == "library" ? selectedForeground : defaultForeground;
+            Btn_NavOverview.Foreground = page == "overview" ? selectedForeground : defaultForeground;
+            Btn_NavMonitor.Foreground = page == "monitor" ? selectedForeground : defaultForeground;
         }
 
         private async void Tb_Search_TextChanged(object sender, TextChangedEventArgs e)
@@ -442,6 +546,190 @@ namespace GameLauncherPro
             MessageBox.Show("数据已刷新。若要新增游戏，请使用“将当前游戏加入库”。", "提示");
         }
 
+        private void Btn_FlipAll_Click(object sender, RoutedEventArgs e)
+        {
+            _library.ToggleAllCurrentSides();
+            _data.SaveGameData();
+        }
+
+        private void Btn_ExportJson_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new SaveFileDialog
+            {
+                Filter = "JSON 文件|*.json",
+                FileName = $"game_play_time_{DateTime.Now:yyyyMMdd}.json"
+            };
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            try
+            {
+                var content = JsonSerializer.Serialize(
+                    _data.GetSnapshot(),
+                    new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(dialog.FileName, content);
+                MessageBox.Show("记录已导出。", "导出完成");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导出失败：{ex.Message}", "导出失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void Btn_ImportJson_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "JSON 文件|*.json"
+            };
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            Dictionary<string, GameData>? imported;
+            try
+            {
+                imported = JsonSerializer.Deserialize<Dictionary<string, GameData>>(File.ReadAllText(dialog.FileName));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"无法读取 JSON：{ex.Message}", "导入失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (imported is null)
+            {
+                MessageBox.Show("JSON 中没有有效的游戏记录。", "导入失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                "导入会完全替换当前游戏记录，是否继续？",
+                "确认导入",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            foreach (var game in imported.Values)
+            {
+                game.exe_paths ??= new List<string>();
+                game.screenshot_paths ??= new List<string>();
+                game.cover_path ??= string.Empty;
+                game.cover_back_path ??= string.Empty;
+                game.current_side ??= "front";
+                game.last_play ??= string.Empty;
+                game.launch_exe ??= string.Empty;
+            }
+
+            CloseDrawer();
+            _data.ReplaceGameData(imported);
+            _data.SaveGameData();
+            await ReloadDataViewsAsync(includeCharts: true);
+            MessageBox.Show($"已导入 {imported.Count} 条游戏记录。", "导入完成");
+        }
+
+        private void CardMore_Click(object sender, RoutedEventArgs e)
+        {
+            if (TryGetCardViewModel(sender, out var game))
+            {
+                OpenDrawer(game);
+            }
+        }
+
+        private void Btn_CloseDrawer_Click(object sender, RoutedEventArgs e)
+        {
+            CloseDrawer();
+        }
+
+        private void DrawerBackdrop_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            CloseDrawer();
+        }
+
+        private async void ScoreOption_Click(object sender, RoutedEventArgs e)
+        {
+            if (!TryGetCardViewModel(sender, out var game)
+                || sender is not System.Windows.Controls.Button button
+                || !int.TryParse(button.Tag?.ToString(), out var score))
+            {
+                return;
+            }
+
+            _library.SetScore(game.Name, Math.Clamp(score, 0, 10));
+            ScheduleSaveGameData();
+            ApplyLibraryViewState();
+            await ReloadDataViewsAsync(includeCharts: true);
+        }
+
+        private async void Btn_SaveDrawerTime_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null)
+            {
+                return;
+            }
+
+            if (!int.TryParse(Tb_DrawerHours.Text.Trim(), out var hours)
+                || !int.TryParse(Tb_DrawerMinutes.Text.Trim(), out var minutes)
+                || hours < 0
+                || minutes < 0
+                || minutes > 59)
+            {
+                MessageBox.Show("请输入有效的小时和分钟（分钟范围为 0-59）。", "时长格式错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _library.SetTotalSeconds(SelectedGame.Name, hours * 3600 + minutes * 60, DateTime.Now);
+            _data.SaveGameData();
+            await ReloadDataViewsAsync(includeCharts: true);
+            OpenDrawer(SelectedGame);
+        }
+
+        private async void Btn_SaveDrawerName_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null)
+            {
+                return;
+            }
+
+            var oldName = SelectedGame.Name;
+            var newName = Tb_DrawerName.Text.Trim();
+            if (string.IsNullOrWhiteSpace(newName) || string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (!_library.RenameGame(oldName, newName))
+            {
+                MessageBox.Show($"游戏 \"{newName}\" 已存在，请使用其他名称。", "重命名失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            CloseDrawer();
+            _data.SaveGameData();
+            await ReloadDataViewsAsync(includeCharts: true);
+        }
+
+        private void OpenDrawer(GameViewModel game)
+        {
+            SelectedGame = game;
+            _screenshotIndex = 0;
+            RaiseScreenshotNavigationProperties();
+            Tb_DrawerName.Text = game.Name;
+            Tb_DrawerHours.Text = (game.TotalSeconds / 3600).ToString();
+            Tb_DrawerMinutes.Text = ((game.TotalSeconds % 3600) / 60).ToString("D2");
+        }
+
+        private void CloseDrawer()
+        {
+            SelectedGame = null;
+        }
+
         private void CardFlip_Click(object sender, RoutedEventArgs e)
         {
             if (TryGetCardViewModel(sender, out var game))
@@ -485,6 +773,85 @@ namespace GameLauncherPro
             _library.SetCover(game.Name, file, setFront: false);
             ScheduleSaveGameData();
             await ReloadDataViewsAsync(includeCharts: false);
+        }
+
+        private async void Btn_AddScreenshots_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null)
+            {
+                return;
+            }
+
+            var files = PromptForImageFiles();
+            if (files.Length == 0)
+            {
+                return;
+            }
+
+            _library.AddScreenshots(SelectedGame.Name, files);
+            _data.SaveGameData();
+            await ReloadDataViewsAsync(includeCharts: false);
+            if (SelectedGame is not null)
+            {
+                OpenDrawer(SelectedGame);
+            }
+        }
+
+        private async void ScreenshotDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null
+                || sender is not FrameworkElement element
+                || element.DataContext is not ScreenshotViewModel screenshot)
+            {
+                return;
+            }
+
+            _library.RemoveScreenshot(SelectedGame.Name, screenshot.ImagePath);
+            _data.SaveGameData();
+            await ReloadDataViewsAsync(includeCharts: false);
+            if (SelectedGame is not null)
+            {
+                OpenDrawer(SelectedGame);
+            }
+        }
+
+        private void Btn_PreviousScreenshot_Click(object sender, RoutedEventArgs e)
+        {
+            if (!CanShowPreviousScreenshot)
+            {
+                return;
+            }
+
+            _screenshotIndex--;
+            RaiseScreenshotNavigationProperties();
+        }
+
+        private void Btn_NextScreenshot_Click(object sender, RoutedEventArgs e)
+        {
+            if (!CanShowNextScreenshot)
+            {
+                return;
+            }
+
+            _screenshotIndex++;
+            RaiseScreenshotNavigationProperties();
+        }
+
+        private async void Btn_DeleteCurrentScreenshot_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null || CurrentScreenshot is null)
+            {
+                return;
+            }
+
+            _library.RemoveScreenshot(SelectedGame.Name, CurrentScreenshot.ImagePath);
+            _data.SaveGameData();
+            await ReloadDataViewsAsync(includeCharts: false);
+            _screenshotIndex = Math.Max(0, _screenshotIndex - 1);
+            if (SelectedGame is not null)
+            {
+                OpenDrawer(SelectedGame);
+            }
         }
 
         private async void CardSetScore_Click(object sender, RoutedEventArgs e)
@@ -595,7 +962,13 @@ namespace GameLauncherPro
                 return;
             }
 
+            var deletedSelectedGame = ReferenceEquals(SelectedGame, game);
             _library.DeleteGame(game.Name);
+            if (deletedSelectedGame)
+            {
+                CloseDrawer();
+            }
+
             _data.SaveGameData();
             await ReloadDataViewsAsync(includeCharts: true);
         }
@@ -665,6 +1038,17 @@ namespace GameLauncherPro
             };
 
             return dialog.ShowDialog() == true ? dialog.FileName : null;
+        }
+
+        private static string[] PromptForImageFiles()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp",
+                Multiselect = true
+            };
+
+            return dialog.ShowDialog() == true ? dialog.FileNames : Array.Empty<string>();
         }
 
         private static bool TryGetCardViewModel(object sender, out GameViewModel game)

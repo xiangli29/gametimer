@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -13,8 +14,8 @@ namespace GameLauncherPro.Services
 {
     public sealed class ImageCacheService : IDisposable
     {
-        private const int DecodeWidth = 240;
-        private const int DecodeHeight = 320;
+        private const int DecodeWidth = 253;
+        private const int DecodeHeight = 326;
         private const int MaxCachedImages = 256;
 
         private readonly string _thumbnailDirectory;
@@ -37,6 +38,7 @@ namespace GameLauncherPro.Services
 
             await LoadSingleImageAsync(viewModel, frontPath, isFront: true, cancellationToken);
             await LoadSingleImageAsync(viewModel, backPath, isFront: false, cancellationToken);
+            await LoadScreenshotsAsync(viewModel, cancellationToken);
         }
 
         public void Dispose()
@@ -85,6 +87,28 @@ namespace GameLauncherPro.Services
                     viewModel.BackImage = image;
                 }
             });
+        }
+
+        private async Task LoadScreenshotsAsync(GameViewModel viewModel, CancellationToken cancellationToken)
+        {
+            foreach (var screenshot in viewModel.Screenshots.ToArray())
+            {
+                if (string.IsNullOrWhiteSpace(screenshot.ImagePath) || !File.Exists(screenshot.ImagePath))
+                {
+                    continue;
+                }
+
+                var image = await LoadImageAsync(screenshot.ImagePath, cancellationToken);
+                if (image is null)
+                {
+                    continue;
+                }
+
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    screenshot.Image = image;
+                });
+            }
         }
 
         private async Task<BitmapSource?> LoadImageAsync(string originalPath, CancellationToken cancellationToken)

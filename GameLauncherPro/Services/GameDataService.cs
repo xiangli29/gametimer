@@ -27,6 +27,14 @@ namespace GameLauncherPro.Services
             }
         }
 
+        public void ReplaceGameData(Dictionary<string, GameData> gameData)
+        {
+            lock (DataLock)
+            {
+                GameData = gameData ?? new Dictionary<string, GameData>();
+            }
+        }
+
         public void LoadConfig()
         {
             var configPath = GetConfigFilePath();

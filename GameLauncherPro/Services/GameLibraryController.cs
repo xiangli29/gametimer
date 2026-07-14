@@ -115,6 +115,47 @@ namespace GameLauncherPro.Services
             }
         }
 
+        public void ToggleAllCurrentSides()
+        {
+            lock (_data.DataLock)
+            {
+                foreach (var data in _data.GameData.Values)
+                {
+                    data.current_side = data.current_side == "back" ? "front" : "back";
+                }
+            }
+
+            foreach (var game in Games)
+            {
+                game.CurrentSide = game.CurrentSide == "back" ? "front" : "back";
+            }
+        }
+
+        public void AddScreenshots(string gameName, IEnumerable<string> paths)
+        {
+            lock (_data.DataLock)
+            {
+                var screenshots = GetOrCreateGameData(gameName).screenshot_paths;
+                foreach (var path in paths)
+                {
+                    if (!string.IsNullOrWhiteSpace(path)
+                        && !screenshots.Contains(path, StringComparer.OrdinalIgnoreCase))
+                    {
+                        screenshots.Add(path);
+                    }
+                }
+            }
+        }
+
+        public void RemoveScreenshot(string gameName, string path)
+        {
+            lock (_data.DataLock)
+            {
+                var screenshots = GetOrCreateGameData(gameName).screenshot_paths;
+                screenshots.RemoveAll(item => string.Equals(item, path, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
         public void SetScore(string gameName, int score)
         {
             lock (_data.DataLock)
