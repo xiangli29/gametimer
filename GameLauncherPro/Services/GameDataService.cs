@@ -17,6 +17,7 @@ namespace GameLauncherPro.Services
         public AutoRefreshModeEnum AutoRefreshMode { get; set; } = AutoRefreshModeEnum.Manual;
         public bool AutoRefreshCharts { get; set; }
         public bool StrongPowerSaving { get; set; }
+        public bool DarkMode { get; set; }
         public Dictionary<string, GameData> GameData { get; private set; } = new();
 
         public Dictionary<string, GameData> GetSnapshot()
@@ -66,6 +67,10 @@ namespace GameLauncherPro.Services
                 StrongPowerSaving = config.TryGetValue("strong_power_saving", out var strongPowerText)
                     && bool.TryParse(strongPowerText, out var strongPowerValue)
                     && strongPowerValue;
+
+                DarkMode = config.TryGetValue("dark_mode", out var darkModeText)
+                    && bool.TryParse(darkModeText, out var darkModeValue)
+                    && darkModeValue;
             }
             catch
             {
@@ -79,7 +84,8 @@ namespace GameLauncherPro.Services
                 ["game_dir"] = GameRootDir ?? "",
                 ["auto_refresh_charts"] = AutoRefreshCharts.ToString(),
                 ["auto_refresh_mode"] = ((int)AutoRefreshMode).ToString(),
-                ["strong_power_saving"] = StrongPowerSaving.ToString()
+                ["strong_power_saving"] = StrongPowerSaving.ToString(),
+                ["dark_mode"] = DarkMode.ToString()
             };
 
             try

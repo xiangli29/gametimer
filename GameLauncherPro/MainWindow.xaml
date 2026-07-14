@@ -8,8 +8,7 @@
         Height="900"
         MinWidth="1120"
         MinHeight="720"
-        WindowState="Maximized"
-        Background="#0B0A09">
+        WindowState="Maximized">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -30,14 +29,14 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="0" Grid.Column="0" Background="{StaticResource SidebarBrush}">
+        <Border Grid.Row="0" Grid.Column="0" Background="{DynamicResource SidebarBrush}">
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Top" Margin="20,24,20,18">
                     <TextBlock Text="GameLauncherPro"
                                FontSize="16"
                                FontWeight="SemiBold"
                                TextWrapping="NoWrap"
-                               Foreground="{StaticResource TextPrimaryBrush}" />
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
                     <TextBlock Text="游戏收藏与时长管理"
                                Margin="0,5,0,0"
                                Style="{StaticResource FieldLabel}" />
@@ -73,14 +72,14 @@
                 <Border DockPanel.Dock="Bottom"
                         Margin="12,0,12,18"
                         Padding="12"
-                        Background="{StaticResource PanelBrush}"
-                        BorderBrush="{StaticResource BorderBrush}"
+                        Background="{DynamicResource PanelBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
-                            <Ellipse x:Name="RunningIndicator" Width="8" Height="8" Margin="0,0,7,0" Fill="#66737D" />
-                            <TextBlock Text="进程监控" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                            <Ellipse x:Name="RunningIndicator" Width="8" Height="8" Margin="0,0,7,0" Fill="{DynamicResource RunningIdleBrush}" />
+                            <TextBlock Text="进程监控" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                         </StackPanel>
                         <TextBlock Text="后台运行中"
                                    Margin="15,5,0,0"
@@ -90,7 +89,7 @@
             </DockPanel>
         </Border>
 
-        <Border Grid.Row="0" Grid.Column="1" Background="{StaticResource BorderBrush}" />
+        <Border Grid.Row="0" Grid.Column="1" Background="{DynamicResource BorderBrush}" />
 
         <Grid Grid.Row="0" Grid.Column="2">
             <Grid x:Name="LibraryPage" Margin="20,18,20,16">
@@ -110,7 +109,7 @@
                             <TextBlock Text="游戏库"
                                        FontSize="24"
                                        FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock x:Name="Tb_GameCount"
                                        Margin="10,8,0,0"
                                        Style="{StaticResource FieldLabel}" />
@@ -189,14 +188,14 @@
                                             ToolTip="点击翻转正反封面"
                                             Click="CardFlip_Click">
                                     <Grid Width="253" Height="326" ClipToBounds="True">
-                                        <Rectangle Fill="{StaticResource PlaceholderBrush}" />
+                                        <Rectangle Fill="{DynamicResource PlaceholderBrush}" />
                                         <TextBlock Text="{Binding Name}"
                                                    Margin="18"
                                                    VerticalAlignment="Center"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center"
                                                    TextWrapping="Wrap"
-                                                   Foreground="{StaticResource TextMutedBrush}" />
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
                                         <Image Width="253"
                                                Height="326"
                                                Stretch="UniformToFill"
@@ -219,17 +218,17 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                                             <TextBlock Text="{Binding Score, StringFormat=评分 {0}/10}"
                                                        FontSize="11"
-                                                       Foreground="{StaticResource AccentBrush}"
+                                                       Foreground="{DynamicResource AccentBrush}"
                                                        ToolTip="{Binding Score, StringFormat=评分：{0}/10}" />
                                             <TextBlock Text="{Binding DisplayPlayTime}"
                                                        Margin="8,0,0,0"
                                                        FontSize="11"
-                                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
                                         </StackPanel>
                                         <TextBlock Text="{Binding LastPlay}"
                                                    Margin="0,4,0,0"
                                                    FontSize="10"
-                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
                                                    TextTrimming="CharacterEllipsis"
                                                    ToolTip="{Binding LastPlay}" />
                                     </StackPanel>
@@ -316,7 +315,7 @@
                             <lvc:CartesianChart x:Name="Lc_BarChart"
                                                 Height="300"
                                                 Margin="0,12,0,0"
-                                                Background="{StaticResource ChartBgBrush}" />
+                                                Background="{DynamicResource ChartBgBrush}" />
                         </StackPanel>
                     </Border>
 
@@ -334,7 +333,7 @@
                                 <lvc:PieChart x:Name="Lc_PieChart"
                                               Height="300"
                                               Margin="0,12,0,0"
-                                              Background="{StaticResource ChartBgBrush}" />
+                                              Background="{DynamicResource ChartBgBrush}" />
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="2" Padding="16" Style="{StaticResource SectionPanel}">
@@ -348,7 +347,7 @@
                                     <TextBlock x:Name="Tb_Rank"
                                                FontFamily="Consolas"
                                                FontSize="12"
-                                               Foreground="{StaticResource TextSecondaryBrush}" />
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
                                 </ScrollViewer>
                             </DockPanel>
                         </Border>
@@ -395,7 +394,7 @@
                                          TextWrapping="Wrap"
                                          VerticalScrollBarVisibility="Auto"
                                          FontFamily="Consolas"
-                                         Foreground="{StaticResource TextSecondaryBrush}" />
+                                         Foreground="{DynamicResource TextSecondaryBrush}" />
                             </DockPanel>
                         </Border>
                         <Border Grid.Column="2" Padding="16" Style="{StaticResource SectionPanel}">
@@ -405,7 +404,7 @@
                                            FontWeight="SemiBold" />
                                 <TextBlock x:Name="Tb_MonitorDirectory"
                                            Margin="0,12,0,12"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            TextTrimming="CharacterEllipsis"
                                            ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                                 <Button x:Name="Btn_ChangeFolder"
@@ -417,6 +416,30 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+
+                    <Border Padding="16" Margin="0,0,0,16" Style="{StaticResource SectionPanel}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="外观"
+                                           FontSize="15"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="暗夜模式使用午夜蓝背景与冰蓝强调色"
+                                           Margin="0,5,0,0"
+                                           Style="{StaticResource FieldLabel}" />
+                            </StackPanel>
+                            <ToggleButton x:Name="Tg_DarkMode"
+                                          Grid.Column="1"
+                                          VerticalAlignment="Center"
+                                          Style="{StaticResource ThemeToggle}"
+                                          ToolTip="暗夜模式"
+                                          Checked="Tg_DarkMode_Changed"
+                                          Unchecked="Tg_DarkMode_Changed" />
+                        </Grid>
+                    </Border>
 
                     <Border Padding="16" Margin="0,0,0,16" Style="{StaticResource SectionPanel}">
                         <StackPanel>
@@ -482,14 +505,14 @@
                                      VerticalScrollBarVisibility="Auto"
                                      FontFamily="Consolas"
                                      FontSize="12"
-                                     Foreground="{StaticResource TextSecondaryBrush}" />
+                                     Foreground="{DynamicResource TextSecondaryBrush}" />
                         </DockPanel>
                     </Border>
                 </StackPanel>
             </ScrollViewer>
 
             <Border x:Name="DrawerBackdrop"
-                    Background="#88000000"
+                    Background="{DynamicResource DrawerOverlayBrush}"
                     Panel.ZIndex="9"
                     Visibility="{Binding HasSelectedGame, Converter={StaticResource BoolToVisibilityConverter}}"
                     MouseLeftButtonDown="DrawerBackdrop_MouseLeftButtonDown" />
@@ -497,8 +520,8 @@
             <Border x:Name="DrawerHost"
                     Width="420"
                     HorizontalAlignment="Right"
-                    Background="{StaticResource SidebarBrush}"
-                    BorderBrush="{StaticResource BorderStrongBrush}"
+                    Background="{DynamicResource SidebarBrush}"
+                    BorderBrush="{DynamicResource BorderStrongBrush}"
                     BorderThickness="1,0,0,0"
                     Panel.ZIndex="10"
                     Visibility="{Binding HasSelectedGame, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -520,7 +543,7 @@
                               Height="326"
                               HorizontalAlignment="Center"
                               ClipToBounds="True">
-                            <Rectangle Fill="{StaticResource PlaceholderBrush}" />
+                            <Rectangle Fill="{DynamicResource PlaceholderBrush}" />
                             <Image Width="253"
                                    Height="326"
                                    Stretch="UniformToFill"
@@ -574,7 +597,7 @@
                         </StackPanel>
                         <TextBlock Text="{Binding Score, StringFormat=当前评分：{0}/10}"
                                    FontSize="13"
-                                   Foreground="{StaticResource AccentBrush}" />
+                                   Foreground="{DynamicResource AccentBrush}" />
 
                         <TextBlock Text="累计时长"
                                    Margin="0,18,0,6"
@@ -632,7 +655,7 @@
                               Height="326"
                               HorizontalAlignment="Center"
                               ClipToBounds="True">
-                            <Rectangle Fill="{StaticResource PlaceholderBrush}" />
+                            <Rectangle Fill="{DynamicResource PlaceholderBrush}" />
                             <Image Source="{Binding DataContext.CurrentScreenshot.Image, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                    Stretch="UniformToFill" />
                         </Grid>
@@ -650,7 +673,7 @@
                             <TextBlock Grid.Column="1"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        Text="{Binding DataContext.ScreenshotPositionText, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
                             <Button Grid.Column="2"
                                     Style="{StaticResource IconButton}"
@@ -672,7 +695,7 @@
                         <TextBlock Text="{Binding LaunchExeDisplay}"
                                    Margin="0,0,0,8"
                                    FontSize="11"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding LaunchExeDisplay}" />
                         <Button Style="{StaticResource SecondaryButton}"
@@ -680,7 +703,7 @@
                                 HorizontalAlignment="Left"
                                 Click="CardSwitchExe_Click" />
 
-                        <Separator Margin="0,20,0,16" Background="{StaticResource BorderBrush}" />
+                        <Separator Margin="0,20,0,16" Background="{DynamicResource BorderBrush}" />
                         <Button Style="{StaticResource DangerButton}"
                                 Content="删除此游戏"
                                 HorizontalAlignment="Left"
@@ -692,23 +715,23 @@
 
         <Border Grid.Row="1"
                 Grid.ColumnSpan="3"
-                Background="{StaticResource SidebarBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
+                Background="{DynamicResource SidebarBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,1,0,0">
             <DockPanel Margin="16,0">
                 <TextBlock x:Name="Tb_StatusDir"
                            MaxWidth="700"
                            VerticalAlignment="Center"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            TextTrimming="CharacterEllipsis" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <TextBlock x:Name="Tb_StatusTotal"
                                Margin="0,0,24,0"
                                VerticalAlignment="Center"
-                               Foreground="{StaticResource TextSecondaryBrush}" />
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
                     <TextBlock x:Name="Tb_StatusNum"
                                VerticalAlignment="Center"
-                               Foreground="{StaticResource TextMutedBrush}" />
+                               Foreground="{DynamicResource TextMutedBrush}" />
                 </StackPanel>
             </DockPanel>
         </Border>

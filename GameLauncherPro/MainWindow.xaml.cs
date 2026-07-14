@@ -39,6 +39,7 @@ namespace GameLauncherPro
 
         private ProcessMonitorService _monitor = null!;
         private WinForms.NotifyIcon? _trayIcon;
+        private System.Drawing.Icon? _trayIconImage;
         private DispatcherTimer? _searchDebounceTimer;
         private DispatcherTimer? _saveDebounceTimer;
         private DateTime _lastChartUpdateTime = DateTime.MinValue;
@@ -53,6 +54,7 @@ namespace GameLauncherPro
             InitializeComponent();
 
             _data.LoadConfig();
+            ThemeService.Apply(this, _data.DarkMode);
             _data.LoadGameData();
 
             _imageCache = new ImageCacheService(_data.GetAppDataDir());
@@ -164,8 +166,8 @@ namespace GameLauncherPro
                 {
                     Tb_Running.Text = displayText;
                     RunningIndicator.Fill = hasRunning
-                        ? new SolidColorBrush(MediaColor.FromRgb(0x3F, 0xB9, 0x50))
-                        : new SolidColorBrush(MediaColor.FromRgb(0x48, 0x4F, 0x58));
+                        ? ThemeService.GetBrush("RunningActiveBrush") ?? new SolidColorBrush(MediaColor.FromRgb(0x3F, 0xB9, 0x50))
+                        : ThemeService.GetBrush("RunningIdleBrush") ?? new SolidColorBrush(MediaColor.FromRgb(0x48, 0x4F, 0x58));
                 }, DispatcherPriority.Background);
             };
 
@@ -186,10 +188,19 @@ namespace GameLauncherPro
 
             try
             {
-                var executablePath = Process.GetCurrentProcess().MainModule?.FileName;
-                if (!string.IsNullOrWhiteSpace(executablePath))
+                var trayIconPath = Path.Combine(AppContext.BaseDirectory, "tray.ico");
+                if (File.Exists(trayIconPath))
                 {
-                    _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(executablePath);
+                    _trayIconImage = new System.Drawing.Icon(trayIconPath);
+                    _trayIcon.Icon = _trayIconImage;
+                }
+                else
+                {
+                    var executablePath = Process.GetCurrentProcess().MainModule?.FileName;
+                    if (!string.IsNullOrWhiteSpace(executablePath))
+                    {
+                        _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(executablePath);
+                    }
                 }
             }
             catch
@@ -275,6 +286,7 @@ namespace GameLauncherPro
             Rb_AutoOnAC.IsChecked = _data.AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC;
             Rb_Always.IsChecked = _data.AutoRefreshMode == AutoRefreshModeEnum.Always;
             Cb_StrongPower.IsChecked = _data.StrongPowerSaving;
+            Tg_DarkMode.IsChecked = _data.DarkMode;
 
             _data.AutoRefreshCharts = _data.AutoRefreshMode == AutoRefreshModeEnum.Always
                 || (_data.AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC && ProcessMonitorService.IsOnACPower());
@@ -337,7 +349,7 @@ namespace GameLauncherPro
             var snapshot = _chartService.BuildSnapshot(_data.GetSnapshot());
             Tb_Rank.Text = snapshot.RankText;
 
-            var labelColor = new SkiaSharp.SKColor(0xC3, 0xB2, 0x9F);
+            var labelColor = GetThemeSkColor("ChartAxisBrush", 0x64, 0x74, 0x8B);
             _barChart.XAxes = new[]
             {
                 new Axis
@@ -360,23 +372,23 @@ namespace GameLauncherPro
                 new ColumnSeries<double>
                 {
                     Values = snapshot.Values,
-                    Fill = new SolidColorPaint(new SkiaSharp.SKColor(0xC9, 0x9C, 0x5D)),
-                    Stroke = new SolidColorPaint(new SkiaSharp.SKColor(0xE0, 0xB8, 0x76)) { StrokeThickness = 1 }
+                    Fill = new SolidColorPaint(GetThemeSkColor("AccentBrush", 0x3B, 0x82, 0xF6)),
+                    Stroke = new SolidColorPaint(GetThemeSkColor("AccentHoverBrush", 0x25, 0x63, 0xEB)) { StrokeThickness = 1 }
                 }
             };
 
             var pieColors = new[]
             {
-                new SkiaSharp.SKColor(0xC9, 0x9C, 0x5D),
-                new SkiaSharp.SKColor(0xA7, 0xC6, 0xD9),
-                new SkiaSharp.SKColor(0xF3, 0xC9, 0x69),
-                new SkiaSharp.SKColor(0xE5, 0x80, 0x72),
-                new SkiaSharp.SKColor(0xBA, 0x9A, 0xE8),
-                new SkiaSharp.SKColor(0xB6, 0xC4, 0x9A),
-                new SkiaSharp.SKColor(0xD0, 0xB4, 0x7B),
-                new SkiaSharp.SKColor(0xC7, 0x9B, 0xC9),
-                new SkiaSharp.SKColor(0x86, 0xA9, 0xA2),
-                new SkiaSharp.SKColor(0xD6, 0xA1, 0x69)
+                new SkiaSharp.SKColor(0x3B, 0x82, 0xF6),
+                new SkiaSharp.SKColor(0x22, 0xC5, 0x5E),
+                new SkiaSharp.SKColor(0xA7, 0x8B, 0xFA),
+                new SkiaSharp.SKColor(0xF9, 0x73, 0x16),
+                new SkiaSharp.SKColor(0x06, 0xB6, 0xD4),
+                new SkiaSharp.SKColor(0xE0, 0x52, 0x52),
+                new SkiaSharp.SKColor(0xEA, 0xB3, 0x08),
+                new SkiaSharp.SKColor(0xEC, 0x48, 0x99),
+                new SkiaSharp.SKColor(0x14, 0xB8, 0xA6),
+                new SkiaSharp.SKColor(0x84, 0xCC, 0x16)
             };
 
             var pieSeries = new List<ISeries>(snapshot.OrderedGames.Count);
@@ -388,11 +400,21 @@ namespace GameLauncherPro
                     Values = new[] { (double)item.Value.total_seconds },
                     Name = item.Key,
                     Fill = new SolidColorPaint(pieColors[index % pieColors.Length]),
-                    Stroke = new SolidColorPaint(new SkiaSharp.SKColor(0x24, 0x1D, 0x18)) { StrokeThickness = 1 }
+                    Stroke = new SolidColorPaint(GetThemeSkColor("PanelRaisedBrush", 0xE9, 0xED, 0xF1)) { StrokeThickness = 1 }
                 });
             }
 
             _pieChart.Series = pieSeries.ToArray();
+        }
+
+        private static SkiaSharp.SKColor GetThemeSkColor(string resourceKey, byte fallbackRed, byte fallbackGreen, byte fallbackBlue)
+        {
+            if (ThemeService.GetBrush(resourceKey) is SolidColorBrush brush)
+            {
+                return new SkiaSharp.SKColor(brush.Color.R, brush.Color.G, brush.Color.B, brush.Color.A);
+            }
+
+            return new SkiaSharp.SKColor(fallbackRed, fallbackGreen, fallbackBlue);
         }
 
         private void RenderRecord()
@@ -498,6 +520,19 @@ namespace GameLauncherPro
         {
             _data.StrongPowerSaving = Cb_StrongPower.IsChecked == true;
             _data.SaveConfig();
+        }
+
+        private void Tg_DarkMode_Changed(object sender, RoutedEventArgs e)
+        {
+            _data.DarkMode = Tg_DarkMode.IsChecked == true;
+            ThemeService.Apply(this, _data.DarkMode);
+            _library.RefreshTheme();
+            RefreshCharts();
+
+            if (IsLoaded)
+            {
+                _data.SaveConfig();
+            }
         }
 
         private async void Btn_ChangeFolder_Click(object sender, RoutedEventArgs e)
@@ -1091,6 +1126,7 @@ namespace GameLauncherPro
         {
             _monitor.Stop();
             _trayIcon?.Dispose();
+            _trayIconImage?.Dispose();
             _searchDebounceTimer?.Stop();
             _saveDebounceTimer?.Stop();
             _imageCache.Dispose();

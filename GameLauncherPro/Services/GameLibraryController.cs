@@ -85,6 +85,14 @@ namespace GameLauncherPro.Services
             ApplyView();
         }
 
+        public void RefreshTheme()
+        {
+            foreach (var game in Games)
+            {
+                game.RefreshThemeDependentValues();
+            }
+        }
+
         public void ToggleCurrentSide(string gameName)
         {
             lock (_data.DataLock)

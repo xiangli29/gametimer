@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Media;
+using GameLauncherPro.Services;
 using MediaBrush = System.Windows.Media.Brush;
 
 namespace GameLauncherPro.ViewModels
@@ -81,9 +82,6 @@ namespace GameLauncherPro.ViewModels
             }
         }
 
-        private static readonly MediaBrush ScoreTileFilledBrush = CreateBrush(0xC9, 0x9C, 0x5D);
-        private static readonly MediaBrush ScoreTileEmptyBrush = CreateBrush(0x4A, 0x3B, 0x2E);
-
         public MediaBrush ScoreTile1Brush => GetScoreTileBrush(1);
         public MediaBrush ScoreTile2Brush => GetScoreTileBrush(2);
         public MediaBrush ScoreTile3Brush => GetScoreTileBrush(3);
@@ -94,6 +92,20 @@ namespace GameLauncherPro.ViewModels
         public MediaBrush ScoreTile8Brush => GetScoreTileBrush(8);
         public MediaBrush ScoreTile9Brush => GetScoreTileBrush(9);
         public MediaBrush ScoreTile10Brush => GetScoreTileBrush(10);
+
+        public void RefreshThemeDependentValues()
+        {
+            Raise(nameof(ScoreTile1Brush));
+            Raise(nameof(ScoreTile2Brush));
+            Raise(nameof(ScoreTile3Brush));
+            Raise(nameof(ScoreTile4Brush));
+            Raise(nameof(ScoreTile5Brush));
+            Raise(nameof(ScoreTile6Brush));
+            Raise(nameof(ScoreTile7Brush));
+            Raise(nameof(ScoreTile8Brush));
+            Raise(nameof(ScoreTile9Brush));
+            Raise(nameof(ScoreTile10Brush));
+        }
 
         public ObservableCollection<ScreenshotViewModel> Screenshots { get; } = new();
 
@@ -238,14 +250,8 @@ namespace GameLauncherPro.ViewModels
         }
 
         private MediaBrush GetScoreTileBrush(int tileScore) =>
-            Score >= tileScore ? ScoreTileFilledBrush : ScoreTileEmptyBrush;
-
-        private static MediaBrush CreateBrush(byte red, byte green, byte blue)
-        {
-            var brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue));
-            brush.Freeze();
-            return brush;
-        }
+            ThemeService.GetBrush(Score >= tileScore ? "ScoreFilledBrush" : "ScoreEmptyBrush")
+            ?? System.Windows.Media.Brushes.Transparent;
 
         private static string FormatTime(int seconds)
         {
