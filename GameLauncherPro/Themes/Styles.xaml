@@ -30,6 +30,9 @@
     <SolidColorBrush x:Key="RunningIdleBrush" Color="#66737D" />
     <SolidColorBrush x:Key="ScoreFilledBrush" Color="#3B82F6" />
     <SolidColorBrush x:Key="ScoreEmptyBrush" Color="#E1E7EE" />
+    <SolidColorBrush x:Key="StatusNotStartedBrush" Color="#64748B" />
+    <SolidColorBrush x:Key="StatusPlayingBrush" Color="#3B82F6" />
+    <SolidColorBrush x:Key="StatusCompletedBrush" Color="#22A559" />
 
     <FontFamily x:Key="AppFont">Segoe UI, Microsoft YaHei UI</FontFamily>
     <FontFamily x:Key="IconFont">Segoe Fluent Icons</FontFamily>
@@ -149,6 +152,49 @@
     <Style x:Key="ScoreTileButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
         <Setter Property="Padding" Value="0" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    </Style>
+
+    <Style x:Key="TagChip" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource PanelRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="Margin" Value="0,0,5,5" />
+    </Style>
+
+    <Style x:Key="TagPickerToggle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource PanelRaisedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="Margin" Value="0,0,6,6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Opacity" Value="0.78" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="BorderThickness" Value="2" />
+                            <Setter Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="CardCoverButton" TargetType="Button">

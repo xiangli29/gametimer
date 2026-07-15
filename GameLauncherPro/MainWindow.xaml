@@ -119,6 +119,15 @@
                                    Style="{StaticResource FieldLabel}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="Btn_CheckIn"
+                            Style="{StaticResource PrimaryButton}"
+                            Content="打卡"
+                            Margin="0,0,8,0"
+                            Click="Btn_CheckIn_Click" />
+                    <TextBlock x:Name="Tb_CheckInCount"
+                               Margin="0,0,14,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
                     <Button x:Name="Btn_FlipAll"
                             Style="{StaticResource SecondaryButton}"
                             Content="翻转所有封面"
@@ -157,6 +166,19 @@
                             <ComboBoxItem Content="按最近打开（从近到远）" />
                             <ComboBoxItem Content="按评分（从高到低）" />
                         </ComboBox>
+                        <TextBlock Text="状态"
+                                   Margin="18,0,8,0"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="Cb_StatusFilter"
+                                  Width="130"
+                                  SelectedIndex="0"
+                                  SelectionChanged="Cb_StatusFilter_SelectionChanged">
+                            <ComboBoxItem Content="全部状态" />
+                            <ComboBoxItem Content="未开始" />
+                            <ComboBoxItem Content="游玩中" />
+                            <ComboBoxItem Content="已通关" />
+                        </ComboBox>
                     </StackPanel>
                 </Border>
 
@@ -166,19 +188,19 @@
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ctrls:VirtualizingWrapPanel ItemWidth="289"
-                                                         ItemHeight="466" />
+                                                         ItemHeight="506" />
                         </ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Width="273"
-                                    Height="450"
+                                    Height="490"
                                     Margin="8"
                                     Style="{StaticResource GameCard}">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="326" />
-                                        <RowDefinition Height="70" />
+                                        <RowDefinition Height="110" />
                                         <RowDefinition Height="34" />
                                     </Grid.RowDefinitions>
 
@@ -209,13 +231,21 @@
                                     </Grid>
                                     </Button>
 
-                                    <StackPanel Grid.Row="1" Margin="0,10,0,6">
+                                    <StackPanel Grid.Row="1" Margin="0,8,0,4">
                                         <TextBlock Text="{Binding Name}"
                                                    FontSize="14"
                                                    FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis"
                                                    ToolTip="{Binding Name}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                            <Border Background="{Binding StatusBrush}"
+                                                    CornerRadius="4"
+                                                    Padding="6,2"
+                                                    Margin="0,0,6,0">
+                                                <TextBlock Text="{Binding Status}"
+                                                           FontSize="10"
+                                                           Foreground="White" />
+                                            </Border>
                                             <TextBlock Text="{Binding Score, StringFormat=评分 {0}/10}"
                                                        FontSize="11"
                                                        Foreground="{DynamicResource AccentBrush}"
@@ -225,8 +255,31 @@
                                                        FontSize="11"
                                                        Foreground="{DynamicResource TextSecondaryBrush}" />
                                         </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding CardTags}"
+                                                      Height="42"
+                                                      Margin="0,5,0,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <ctrls:AdaptiveTagWrapPanel MaxRows="2" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Style="{StaticResource TagChip}"
+                                                            Background="{Binding BackgroundBrush}"
+                                                            BorderBrush="{Binding BorderBrush}"
+                                                            ToolTip="{Binding ToolTip}">
+                                                        <TextBlock Text="{Binding DisplayText}"
+                                                                   MaxWidth="100"
+                                                                   FontSize="10"
+                                                                   Foreground="{Binding ForegroundBrush}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                         <TextBlock Text="{Binding LastPlay}"
-                                                   Margin="0,4,0,0"
+                                                   Margin="0,0,0,0"
                                                    FontSize="10"
                                                    Foreground="{DynamicResource TextMutedBrush}"
                                                    TextTrimming="CharacterEllipsis"
@@ -443,6 +496,93 @@
 
                     <Border Padding="16" Margin="0,0,0,16" Style="{StaticResource SectionPanel}">
                         <StackPanel>
+                            <TextBlock Text="标签库"
+                                       FontSize="15"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="新增的标签可以在游戏详情中一键贴上。"
+                                       Margin="0,5,0,12"
+                                       Style="{StaticResource FieldLabel}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="74" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="Tb_NewCatalogTag"
+                                         ToolTip="新标签" />
+                                <Button Grid.Column="2"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Content="添加"
+                                        Padding="8,6"
+                                        Click="Btn_AddCatalogTag_Click" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding TagCatalog}"
+                                          Margin="0,12,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource TagChip}"
+                                                Background="{Binding BackgroundBrush}"
+                                                BorderBrush="{Binding BorderBrush}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="26" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Name}"
+                                                           MaxWidth="150"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{Binding ForegroundBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding ToolTip}" />
+                                                <Button Grid.Column="1"
+                                                        Style="{StaticResource IconButton}"
+                                                        Width="22"
+                                                        Height="22"
+                                                        Margin="5,0,0,0"
+                                                        Content="&#xE711;"
+                                                        ToolTip="删除标签"
+                                                        Tag="{Binding Name}"
+                                                        Click="Btn_DeleteCatalogTag_Click" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Padding="16" Margin="0,0,0,16" Style="{StaticResource SectionPanel}">
+                        <StackPanel>
+                            <TextBlock Text="打卡统计"
+                                       FontSize="15"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="修正应用累计打卡次数。"
+                                       Margin="0,5,0,12"
+                                       Style="{StaticResource FieldLabel}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="74" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="Tb_CheckInCountSetting"
+                                         ToolTip="累计打卡次数" />
+                                <Button Grid.Column="2"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Content="保存"
+                                        Padding="8,6"
+                                        Click="Btn_SaveCheckInCount_Click" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Padding="16" Margin="0,0,0,16" Style="{StaticResource SectionPanel}">
+                        <StackPanel>
                             <TextBlock Text="图表刷新"
                                        FontSize="15"
                                        FontWeight="SemiBold" />
@@ -598,6 +738,75 @@
                         <TextBlock Text="{Binding Score, StringFormat=当前评分：{0}/10}"
                                    FontSize="13"
                                    Foreground="{DynamicResource AccentBrush}" />
+
+                        <TextBlock Text="状态"
+                                   Margin="0,18,0,6"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="Cb_DrawerStatus"
+                                  SelectionChanged="Cb_DrawerStatus_SelectionChanged">
+                            <ComboBoxItem Content="未开始" />
+                            <ComboBoxItem Content="游玩中" />
+                            <ComboBoxItem Content="已通关" />
+                        </ComboBox>
+
+                        <TextBlock Text="标签"
+                                   Margin="0,18,0,6"
+                                   Style="{StaticResource FieldLabel}" />
+                        <WrapPanel>
+                            <ItemsControl ItemsSource="{Binding DataContext.TagOptions, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <ToggleButton Style="{StaticResource TagPickerToggle}"
+                                                      Background="{Binding BackgroundBrush}"
+                                                      BorderBrush="{Binding BorderBrush}"
+                                                      Foreground="{Binding ForegroundBrush}"
+                                                      IsChecked="{Binding IsSelected}"
+                                                      Tag="{Binding Name}"
+                                                      Checked="TagOption_Changed"
+                                                      Unchecked="TagOption_Changed">
+                                            <TextBlock Text="{Binding Name}"
+                                                       MaxWidth="126"
+                                                       Foreground="{Binding ForegroundBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Name}" />
+                                        </ToggleButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </WrapPanel>
+                        <Grid Margin="0,2,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="74" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="Tb_NewDrawerTag"
+                                     ToolTip="新建标签并贴上" />
+                            <Button Grid.Column="2"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Content="新建"
+                                    Padding="8,6"
+                                    Click="Btn_AddDrawerTag_Click" />
+                        </Grid>
+
+                        <TextBlock Text="评价"
+                                   Margin="0,18,0,6"
+                                   Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="Tb_DrawerReview"
+                                 Height="110"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" />
+                        <Button Style="{StaticResource SecondaryButton}"
+                                Content="保存评价"
+                                Margin="0,8,0,0"
+                                HorizontalAlignment="Left"
+                                Click="Btn_SaveDrawerReview_Click" />
 
                         <TextBlock Text="累计时长"
                                    Margin="0,18,0,6"

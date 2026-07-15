@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -56,11 +57,13 @@ namespace GameLauncherPro
             _data.LoadConfig();
             ThemeService.Apply(this, _data.DarkMode);
             _data.LoadGameData();
+            _data.SaveConfig();
 
             _imageCache = new ImageCacheService(_data.GetAppDataDir());
             _library = new GameLibraryController(_data, _imageCache);
 
             DataContext = this;
+            RefreshTagCatalog();
             InitializeTimers();
             InitializeCharts();
             InitializeProcessMonitor();
@@ -76,6 +79,10 @@ namespace GameLauncherPro
         }
 
         public System.ComponentModel.ICollectionView GamesView => _library.GamesView;
+
+        public ObservableCollection<TagDisplayViewModel> TagCatalog { get; } = new();
+
+        public ObservableCollection<TagOptionViewModel> TagOptions { get; } = new();
 
         public GameViewModel? SelectedGame
         {
@@ -247,6 +254,10 @@ namespace GameLauncherPro
         {
             ApplyLibraryViewState();
             await _library.RefreshAsync();
+            if (SelectedGame is not null)
+            {
+                RefreshTagOptions();
+            }
             RenderRecord();
             UpdateStatusBar();
             if (includeCharts)
@@ -271,7 +282,7 @@ namespace GameLauncherPro
 
         private void ApplyLibraryViewState()
         {
-            _library.ApplyViewState(Tb_Search.Text, GetSelectedSortOption());
+            _library.ApplyViewState(Tb_Search.Text, GetSelectedSortOption(), GetSelectedStatusFilter());
         }
 
         private void ScheduleSaveGameData()
@@ -287,6 +298,7 @@ namespace GameLauncherPro
             Rb_Always.IsChecked = _data.AutoRefreshMode == AutoRefreshModeEnum.Always;
             Cb_StrongPower.IsChecked = _data.StrongPowerSaving;
             Tg_DarkMode.IsChecked = _data.DarkMode;
+            UpdateCheckInDisplay();
 
             _data.AutoRefreshCharts = _data.AutoRefreshMode == AutoRefreshModeEnum.Always
                 || (_data.AutoRefreshMode == AutoRefreshModeEnum.AutoOnAC && ProcessMonitorService.IsOnACPower());
@@ -407,6 +419,12 @@ namespace GameLauncherPro
             _pieChart.Series = pieSeries.ToArray();
         }
 
+        private string GetSelectedStatusFilter() =>
+            Cb_StatusFilter.SelectedItem is ComboBoxItem { Content: string status }
+                && GameDataService.GameStatuses.Contains(status, StringComparer.Ordinal)
+                ? status
+                : string.Empty;
+
         private static SkiaSharp.SKColor GetThemeSkColor(string resourceKey, byte fallbackRed, byte fallbackGreen, byte fallbackBlue)
         {
             if (ThemeService.GetBrush(resourceKey) is SolidColorBrush brush)
@@ -446,6 +464,41 @@ namespace GameLauncherPro
             Tb_OverviewRecentGame.Text = string.IsNullOrWhiteSpace(recent.Key)
                 ? "暂无游玩记录"
                 : recent.Key;
+        }
+
+        private void UpdateCheckInDisplay()
+        {
+            var count = Math.Max(0, _data.CheckInCount);
+            Tb_CheckInCount.Text = $"累计 {count} 次";
+            Tb_CheckInCountSetting.Text = count.ToString();
+        }
+
+        private void RefreshTagCatalog()
+        {
+            TagCatalog.Clear();
+            foreach (var tag in _data.GetTagCatalogSnapshot())
+            {
+                TagCatalog.Add(new TagDisplayViewModel(tag));
+            }
+
+            RefreshTagOptions();
+        }
+
+        private void RefreshTagOptions()
+        {
+            TagOptions.Clear();
+            if (SelectedGame is null)
+            {
+                return;
+            }
+
+            var assignedTags = new HashSet<string>(SelectedGame.Tags, StringComparer.OrdinalIgnoreCase);
+            foreach (var tag in TagCatalog)
+            {
+                TagOptions.Add(new TagOptionViewModel(
+                    new TagDefinition { name = tag.Name, color = tag.Color },
+                    assignedTags.Contains(tag.Name)));
+            }
         }
 
         private void NavLibrary_Click(object sender, RoutedEventArgs e) => ShowPage("library");
@@ -495,6 +548,16 @@ namespace GameLauncherPro
             ApplyLibraryViewState();
         }
 
+        private void Cb_StatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!IsLoaded)
+            {
+                return;
+            }
+
+            ApplyLibraryViewState();
+        }
+
         private void Rb_AutoManual_Checked(object sender, RoutedEventArgs e)
         {
             _data.AutoRefreshMode = AutoRefreshModeEnum.Manual;
@@ -527,12 +590,67 @@ namespace GameLauncherPro
             _data.DarkMode = Tg_DarkMode.IsChecked == true;
             ThemeService.Apply(this, _data.DarkMode);
             _library.RefreshTheme();
+            RefreshTagCatalog();
             RefreshCharts();
 
             if (IsLoaded)
             {
                 _data.SaveConfig();
             }
+        }
+
+        private void Btn_CheckIn_Click(object sender, RoutedEventArgs e)
+        {
+            _data.CheckInCount = Math.Max(0, _data.CheckInCount) + 1;
+            _data.SaveConfig();
+            UpdateCheckInDisplay();
+        }
+
+        private void Btn_SaveCheckInCount_Click(object sender, RoutedEventArgs e)
+        {
+            if (!int.TryParse(Tb_CheckInCountSetting.Text.Trim(), out var count) || count < 0)
+            {
+                MessageBox.Show("请输入非负整数。", "打卡次数格式错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _data.CheckInCount = count;
+            _data.SaveConfig();
+            UpdateCheckInDisplay();
+        }
+
+        private void Btn_AddCatalogTag_Click(object sender, RoutedEventArgs e)
+        {
+            if (_data.AddTagToCatalog(Tb_NewCatalogTag.Text, out _))
+            {
+                _data.SaveConfig();
+                RefreshTagCatalog();
+            }
+
+            Tb_NewCatalogTag.Clear();
+        }
+
+        private async void Btn_DeleteCatalogTag_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: string tag })
+            {
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"删除标签“{tag}”会同步从所有游戏中移除它，是否继续？",
+                "确认删除标签",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result != MessageBoxResult.Yes || !_data.RemoveTagFromCatalog(tag))
+            {
+                return;
+            }
+
+            _data.SaveConfig();
+            _data.SaveGameData();
+            RefreshTagCatalog();
+            await ReloadDataViewsAsync(includeCharts: false);
         }
 
         private async void Btn_ChangeFolder_Click(object sender, RoutedEventArgs e)
@@ -660,11 +778,16 @@ namespace GameLauncherPro
                 game.current_side ??= "front";
                 game.last_play ??= string.Empty;
                 game.launch_exe ??= string.Empty;
+                game.status = GameDataService.NormalizeStatus(game.status);
+                game.tags = GameDataService.NormalizeTags(game.tags);
+                game.review ??= string.Empty;
             }
 
             CloseDrawer();
             _data.ReplaceGameData(imported);
             _data.SaveGameData();
+            _data.SaveConfig();
+            RefreshTagCatalog();
             await ReloadDataViewsAsync(includeCharts: true);
             MessageBox.Show($"已导入 {imported.Count} 条游戏记录。", "导入完成");
         }
@@ -700,6 +823,76 @@ namespace GameLauncherPro
             ScheduleSaveGameData();
             ApplyLibraryViewState();
             await ReloadDataViewsAsync(includeCharts: true);
+        }
+
+        private void Cb_DrawerStatus_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (SelectedGame is null
+                || sender is not System.Windows.Controls.ComboBox { SelectedItem: ComboBoxItem { Content: string status } }
+                || string.Equals(SelectedGame.Status, status, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _library.SetStatus(SelectedGame.Name, status);
+            _data.SaveGameData();
+            ApplyLibraryViewState();
+        }
+
+        private void TagOption_Changed(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null
+                || sender is not System.Windows.Controls.Primitives.ToggleButton { Tag: string tag } toggle)
+            {
+                return;
+            }
+
+            var isAssigned = SelectedGame.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase);
+            var shouldBeAssigned = toggle.IsChecked == true;
+            if (isAssigned == shouldBeAssigned)
+            {
+                return;
+            }
+
+            _library.ToggleTag(SelectedGame.Name, tag);
+            _data.SaveGameData();
+            ApplyLibraryViewState();
+        }
+
+        private void Btn_AddDrawerTag_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null)
+            {
+                return;
+            }
+
+            _data.AddTagToCatalog(Tb_NewDrawerTag.Text, out var tag);
+            if (string.IsNullOrWhiteSpace(tag.name))
+            {
+                return;
+            }
+
+            if (!SelectedGame.Tags.Contains(tag.name, StringComparer.OrdinalIgnoreCase))
+            {
+                _library.ToggleTag(SelectedGame.Name, tag.name);
+                _data.SaveGameData();
+            }
+
+            _data.SaveConfig();
+            Tb_NewDrawerTag.Clear();
+            RefreshTagCatalog();
+            ApplyLibraryViewState();
+        }
+
+        private void Btn_SaveDrawerReview_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedGame is null)
+            {
+                return;
+            }
+
+            _library.SetReview(SelectedGame.Name, Tb_DrawerReview.Text);
+            _data.SaveGameData();
         }
 
         private async void Btn_SaveDrawerTime_Click(object sender, RoutedEventArgs e)
@@ -758,11 +951,18 @@ namespace GameLauncherPro
             Tb_DrawerName.Text = game.Name;
             Tb_DrawerHours.Text = (game.TotalSeconds / 3600).ToString();
             Tb_DrawerMinutes.Text = ((game.TotalSeconds % 3600) / 60).ToString("D2");
+            Tb_DrawerReview.Text = game.Review;
+            Tb_NewDrawerTag.Clear();
+            Cb_DrawerStatus.SelectedItem = Cb_DrawerStatus.Items
+                .OfType<ComboBoxItem>()
+                .FirstOrDefault(item => string.Equals(item.Content?.ToString(), game.Status, StringComparison.Ordinal));
+            RefreshTagOptions();
         }
 
         private void CloseDrawer()
         {
             SelectedGame = null;
+            TagOptions.Clear();
         }
 
         private void CardFlip_Click(object sender, RoutedEventArgs e)

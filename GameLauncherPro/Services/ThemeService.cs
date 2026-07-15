@@ -36,7 +36,10 @@ namespace GameLauncherPro.Services
             ["RunningActiveBrush"] = "#3FB950",
             ["RunningIdleBrush"] = "#66737D",
             ["ScoreFilledBrush"] = "#3B82F6",
-            ["ScoreEmptyBrush"] = "#E1E7EE"
+            ["ScoreEmptyBrush"] = "#E1E7EE",
+            ["StatusNotStartedBrush"] = "#64748B",
+            ["StatusPlayingBrush"] = "#3B82F6",
+            ["StatusCompletedBrush"] = "#22A559"
         };
 
         private static readonly IReadOnlyDictionary<string, string> DarkPalette = new Dictionary<string, string>
@@ -69,14 +72,20 @@ namespace GameLauncherPro.Services
             ["RunningActiveBrush"] = "#4ADE80",
             ["RunningIdleBrush"] = "#64748B",
             ["ScoreFilledBrush"] = "#60A5FA",
-            ["ScoreEmptyBrush"] = "#243550"
+            ["ScoreEmptyBrush"] = "#243550",
+            ["StatusNotStartedBrush"] = "#94A3B8",
+            ["StatusPlayingBrush"] = "#60A5FA",
+            ["StatusCompletedBrush"] = "#4ADE80"
         };
 
         private static FrameworkElement? _resourceOwner;
 
+        public static bool IsDarkMode { get; private set; }
+
         public static void Apply(FrameworkElement resourceOwner, bool darkMode)
         {
             _resourceOwner = resourceOwner;
+            IsDarkMode = darkMode;
             var palette = darkMode ? DarkPalette : LightPalette;
 
             foreach (var (resourceKey, hexColor) in palette)

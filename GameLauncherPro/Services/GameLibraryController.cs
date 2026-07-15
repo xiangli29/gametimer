@@ -41,6 +41,8 @@ namespace GameLauncherPro.Services
 
         public GameSortOption SortOption { get; private set; } = GameSortOption.LastPlayedDesc;
 
+        public string StatusFilter { get; private set; } = string.Empty;
+
         public async Task RefreshAsync(CancellationToken cancellationToken = default)
         {
             List<KeyValuePair<string, GameData>> snapshot;
@@ -48,6 +50,7 @@ namespace GameLauncherPro.Services
             {
                 snapshot = _data.GameData.ToList();
             }
+            var tagDefinitions = _data.GetTagCatalogSnapshot();
 
             var existing = Games.ToDictionary(game => game.Name, StringComparer.OrdinalIgnoreCase);
             var incomingNames = new HashSet<string>(snapshot.Select(item => item.Key), StringComparer.OrdinalIgnoreCase);
@@ -69,7 +72,7 @@ namespace GameLauncherPro.Services
                     Games.Add(viewModel);
                 }
 
-                viewModel.UpdateFromGameData(name, data);
+                viewModel.UpdateFromGameData(name, data, tagDefinitions);
                 imagesToLoad.Add((viewModel, data));
             }
 
@@ -78,10 +81,13 @@ namespace GameLauncherPro.Services
             await Task.CompletedTask;
         }
 
-        public void ApplyViewState(string? searchText, GameSortOption sortOption)
+        public void ApplyViewState(string? searchText, GameSortOption sortOption, string? statusFilter)
         {
             SearchText = searchText?.Trim() ?? string.Empty;
             SortOption = sortOption;
+            StatusFilter = GameDataService.GameStatuses.Contains(statusFilter, StringComparer.Ordinal)
+                ? statusFilter!
+                : string.Empty;
             ApplyView();
         }
 
@@ -174,6 +180,71 @@ namespace GameLauncherPro.Services
             if (FindViewModel(gameName) is { } vm)
             {
                 vm.Score = score;
+            }
+        }
+
+        public void SetStatus(string gameName, string? status)
+        {
+            var normalized = GameDataService.NormalizeStatus(status);
+            lock (_data.DataLock)
+            {
+                GetOrCreateGameData(gameName).status = normalized;
+            }
+
+            if (FindViewModel(gameName) is { } vm)
+            {
+                vm.Status = normalized;
+            }
+        }
+
+        public bool ToggleTag(string gameName, string? tag)
+        {
+            var normalized = GameDataService.NormalizeTag(tag);
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return false;
+            }
+
+            List<string> tags;
+            var isSelected = false;
+            lock (_data.DataLock)
+            {
+                var game = GetOrCreateGameData(gameName);
+                var existing = game.tags.FirstOrDefault(item =>
+                    string.Equals(item, normalized, StringComparison.OrdinalIgnoreCase));
+                if (existing is not null)
+                {
+                    game.tags.Remove(existing);
+                }
+                else
+                {
+                    game.tags.Add(normalized);
+                    game.tags = GameDataService.NormalizeTags(game.tags);
+                    isSelected = true;
+                }
+
+                tags = game.tags.ToList();
+            }
+
+            if (FindViewModel(gameName) is { } vm)
+            {
+                vm.UpdateTags(tags, _data.GetTagCatalogSnapshot());
+            }
+
+            return isSelected;
+        }
+
+        public void SetReview(string gameName, string? review)
+        {
+            var normalized = review?.Trim() ?? string.Empty;
+            lock (_data.DataLock)
+            {
+                GetOrCreateGameData(gameName).review = normalized;
+            }
+
+            if (FindViewModel(gameName) is { } vm)
+            {
+                vm.Review = normalized;
             }
         }
 
@@ -306,8 +377,16 @@ namespace GameLauncherPro.Services
                 return false;
             }
 
+            var matchesStatus = string.IsNullOrEmpty(StatusFilter)
+                || string.Equals(game.Status, StatusFilter, StringComparison.Ordinal);
+            if (!matchesStatus)
+            {
+                return false;
+            }
+
             return string.IsNullOrWhiteSpace(SearchText)
-                || game.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
+                || game.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase)
+                || game.Tags.Any(tag => tag.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
         }
 
         private GameViewModel? FindViewModel(string gameName)

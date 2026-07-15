@@ -82,6 +82,31 @@ namespace GameLauncherPro.ViewModels
             }
         }
 
+        private string _status = GameDataService.StatusNotStarted;
+        public string Status
+        {
+            get => _status;
+            set
+            {
+                _status = GameDataService.NormalizeStatus(value);
+                Raise(nameof(Status));
+                Raise(nameof(StatusBrush));
+            }
+        }
+
+        public MediaBrush StatusBrush => Status switch
+        {
+            GameDataService.StatusPlaying => ThemeService.GetBrush("StatusPlayingBrush") ?? System.Windows.Media.Brushes.DodgerBlue,
+            GameDataService.StatusCompleted => ThemeService.GetBrush("StatusCompletedBrush") ?? System.Windows.Media.Brushes.SeaGreen,
+            _ => ThemeService.GetBrush("StatusNotStartedBrush") ?? System.Windows.Media.Brushes.SlateGray
+        };
+
+        public ObservableCollection<string> Tags { get; } = new();
+        public ObservableCollection<TagDisplayViewModel> CardTags { get; } = new();
+
+        private string _review = "";
+        public string Review { get => _review; set { _review = value ?? ""; Raise(nameof(Review)); } }
+
         public MediaBrush ScoreTile1Brush => GetScoreTileBrush(1);
         public MediaBrush ScoreTile2Brush => GetScoreTileBrush(2);
         public MediaBrush ScoreTile3Brush => GetScoreTileBrush(3);
@@ -105,6 +130,11 @@ namespace GameLauncherPro.ViewModels
             Raise(nameof(ScoreTile8Brush));
             Raise(nameof(ScoreTile9Brush));
             Raise(nameof(ScoreTile10Brush));
+            Raise(nameof(StatusBrush));
+            foreach (var tag in CardTags)
+            {
+                tag.RefreshTheme();
+            }
         }
 
         public ObservableCollection<ScreenshotViewModel> Screenshots { get; } = new();
@@ -209,12 +239,18 @@ namespace GameLauncherPro.ViewModels
             }
         }
 
-        public void UpdateFromGameData(string name, GameLauncherPro.GameData data)
+        public void UpdateFromGameData(
+            string name,
+            GameLauncherPro.GameData data,
+            IReadOnlyList<GameLauncherPro.TagDefinition> tagDefinitions)
         {
             Name = name;
             TotalSeconds = data.total_seconds;
             LastPlay = data.last_play ?? "";
             Score = data.score;
+            Status = data.status;
+            Review = data.review ?? "";
+            UpdateTags(data.tags, tagDefinitions);
             FrontImagePath = data.cover_path ?? "";
             BackImagePath = data.cover_back_path ?? "";
             CurrentSide = string.IsNullOrWhiteSpace(data.current_side) ? "front" : data.current_side;
@@ -230,6 +266,42 @@ namespace GameLauncherPro.ViewModels
             ExePaths = paths;
             var launchIndex = ExePaths.IndexOf(data.launch_exe ?? "");
             SelectedExeIndex = launchIndex >= 0 ? launchIndex : 0;
+        }
+
+        public void UpdateTags(
+            IEnumerable<string>? tags,
+            IReadOnlyList<GameLauncherPro.TagDefinition> tagDefinitions)
+        {
+            Tags.Clear();
+            CardTags.Clear();
+            if (tags is null)
+            {
+                return;
+            }
+
+            var normalized = GameDataService.NormalizeTags(tags);
+            var definitions = tagDefinitions.ToDictionary(
+                definition => definition.name,
+                definition => definition,
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var tag in normalized)
+            {
+                Tags.Add(tag);
+                if (definitions.TryGetValue(tag, out var definition))
+                {
+                    CardTags.Add(new TagDisplayViewModel(definition));
+                }
+                else
+                {
+                    CardTags.Add(new TagDisplayViewModel(new GameLauncherPro.TagDefinition
+                    {
+                        name = tag,
+                        color = "#64748B"
+                    }));
+                }
+            }
+
+            CardTags.Add(TagDisplayViewModel.CreateOverflow());
         }
 
         private void UpdateScreenshots(IEnumerable<string>? screenshotPaths)
