@@ -15,6 +15,58 @@
                 <ResourceDictionary Source="/Themes/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <Style x:Key="RecordDatePicker" TargetType="DatePicker">
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="DatePicker">
+                            <Grid x:Name="PART_Root">
+                                <Border Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="30" />
+                                    </Grid.ColumnDefinitions>
+                                    <DatePickerTextBox x:Name="PART_TextBox"
+                                                       Background="Transparent"
+                                                       BorderThickness="0"
+                                                       Foreground="{TemplateBinding Foreground}"
+                                                       Padding="8,0,4,0"
+                                                       VerticalContentAlignment="Center" />
+                                    <Button x:Name="PART_Button"
+                                            Grid.Column="1"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{DynamicResource TextSecondaryBrush}"
+                                            FontFamily="{DynamicResource IconFont}"
+                                            FontSize="13"
+                                            Content="&#xE787;" />
+                                </Grid>
+                                <Popup x:Name="PART_Popup"
+                                       Placement="Bottom"
+                                       AllowsTransparency="True"
+                                       StaysOpen="False"
+                                       IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
+                                    <Border Margin="0,4,0,0"
+                                            Background="{DynamicResource PanelBrush}"
+                                            BorderBrush="{DynamicResource BorderStrongBrush}"
+                                            BorderThickness="1">
+                                        <Calendar x:Name="PART_Calendar"
+                                                  Background="{DynamicResource PanelBrush}"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -361,15 +413,105 @@
                     </Grid>
 
                     <Border Padding="16" Margin="0,0,0,16" Style="{StaticResource SectionPanel}">
-                        <StackPanel>
-                            <TextBlock Text="游玩时长"
-                                       FontSize="15"
-                                       FontWeight="SemiBold" />
-                            <lvc:CartesianChart x:Name="Lc_BarChart"
-                                                Height="300"
-                                                Margin="0,12,0,0"
-                                                Background="{DynamicResource ChartBgBrush}" />
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="272" />
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="&#x6570;&#x636E;&#x6D1E;&#x5BDF;"
+                                           FontSize="15"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="&#x8FD1; 30 &#x5929;"
+                                           Margin="0,12,0,8"
+                                           Style="{StaticResource FieldLabel}" />
+                                <ItemsControl ItemsSource="{Binding CalendarHeatmapCells}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="7" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="34"
+                                                    Height="34"
+                                                    Margin="1"
+                                                    Background="{Binding Background}"
+                                                    ToolTip="{Binding ToolTip}">
+                                                <TextBlock Text="{Binding Label}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           FontSize="10"
+                                                           Foreground="{Binding Foreground}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="&#x6700;&#x5E38;&#x6E38;&#x73A9;&#x65F6;&#x6BB5;"
+                                           FontSize="15"
+                                           FontWeight="SemiBold" />
+                                <Grid Margin="0,12,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="&#x5468;&#x4E00;-&#x5468;&#x65E5;"
+                                               VerticalAlignment="Center"
+                                               Style="{StaticResource FieldLabel}" />
+                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding HourLabels}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="24" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}"
+                                                           HorizontalAlignment="Center"
+                                                           FontSize="9"
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Height="20" Text="&#x4E00;" Style="{StaticResource FieldLabel}" />
+                                        <TextBlock Height="20" Text="&#x4E8C;" Style="{StaticResource FieldLabel}" />
+                                        <TextBlock Height="20" Text="&#x4E09;" Style="{StaticResource FieldLabel}" />
+                                        <TextBlock Height="20" Text="&#x56DB;" Style="{StaticResource FieldLabel}" />
+                                        <TextBlock Height="20" Text="&#x4E94;" Style="{StaticResource FieldLabel}" />
+                                        <TextBlock Height="20" Text="&#x516D;" Style="{StaticResource FieldLabel}" />
+                                        <TextBlock Height="20" Text="&#x65E5;" Style="{StaticResource FieldLabel}" />
+                                    </StackPanel>
+                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding HourHeatmapCells}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="24" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Height="18"
+                                                        Margin="1"
+                                                        Background="{Binding Background}"
+                                                        ToolTip="{Binding ToolTip}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                                <TextBlock x:Name="Tb_InsightsEmpty"
+                                           Margin="0,12,0,0"
+                                           Style="{StaticResource FieldLabel}" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
                     <Grid>
@@ -632,20 +774,98 @@
 
                     <Border Padding="16" Style="{StaticResource SectionPanel}">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Top"
-                                       Text="游戏记录"
-                                       FontSize="15"
-                                       FontWeight="SemiBold"
-                                       Margin="0,0,0,12" />
-                            <TextBox x:Name="Tb_Record"
-                                     Height="260"
-                                     IsReadOnly="True"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     FontFamily="Consolas"
-                                     FontSize="12"
-                                     Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="132" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="132" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="34" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="&#x6E38;&#x73A9;&#x8BB0;&#x5F55;"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock x:Name="Tb_RecordSummary"
+                                               Margin="0,4,0,0"
+                                               Style="{StaticResource FieldLabel}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Margin="0,0,6,0"
+                                           VerticalAlignment="Center"
+                                           Text="&#x5F00;&#x59CB;"
+                                           Style="{StaticResource FieldLabel}" />
+                                <DatePicker x:Name="Dp_RecordStart"
+                                            Style="{StaticResource RecordDatePicker}"
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            SelectedDateChanged="RecordDateFilter_Changed" />
+                                <TextBlock Grid.Column="4"
+                                           Margin="0,0,6,0"
+                                           VerticalAlignment="Center"
+                                           Text="&#x7ED3;&#x675F;"
+                                           Style="{StaticResource FieldLabel}" />
+                                <DatePicker x:Name="Dp_RecordEnd"
+                                            Style="{StaticResource RecordDatePicker}"
+                                            Grid.Column="5"
+                                            VerticalAlignment="Center"
+                                            SelectedDateChanged="RecordDateFilter_Changed" />
+                                <Button Grid.Column="7"
+                                        Style="{StaticResource IconButton}"
+                                        Content="&#xE777;"
+                                        ToolTip="&#x91CD;&#x7F6E;&#x65E5;&#x671F;&#x7B5B;&#x9009;"
+                                        Click="Btn_ResetRecordFilter_Click" />
+                            </Grid>
+                            <Grid Height="260">
+                                <DataGrid x:Name="Dg_PlaySessions"
+                                          ItemsSource="{Binding PlaySessionRows}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          CanUserResizeRows="False"
+                                          CanUserReorderColumns="False"
+                                          CanUserSortColumns="True"
+                                          HeadersVisibility="Column"
+                                          RowHeight="32"
+                                          BorderThickness="0"
+                                          Background="Transparent"
+                                          RowBackground="{DynamicResource PanelBrush}"
+                                          AlternatingRowBackground="{DynamicResource PanelRaisedBrush}"
+                                          GridLinesVisibility="Horizontal"
+                                          HorizontalGridLinesBrush="{DynamicResource BorderBrush}">
+                                    <DataGrid.Resources>
+                                        <Style TargetType="DataGridColumnHeader">
+                                            <Setter Property="Background" Value="{DynamicResource PanelRaisedBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                            <Setter Property="FontSize" Value="11" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="Padding" Value="10,6" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                                            <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                        </Style>
+                                        <Style TargetType="DataGridCell">
+                                            <Setter Property="Padding" Value="10,0" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                        </Style>
+                                    </DataGrid.Resources>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="&#x6E38;&#x620F;" Binding="{Binding GameName}" Width="2*" />
+                                        <DataGridTextColumn Header="&#x5F00;&#x59CB;&#x65F6;&#x95F4;" Binding="{Binding StartedAt}" Width="1.65*" />
+                                        <DataGridTextColumn Header="&#x7ED3;&#x675F;&#x65F6;&#x95F4;" Binding="{Binding EndedAt}" Width="1.65*" />
+                                        <DataGridTextColumn Header="&#x65F6;&#x957F;" Binding="{Binding Duration}" Width="0.9*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock x:Name="Tb_RecordEmpty"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource FieldLabel}" />
+                            </Grid>
                         </DockPanel>
                     </Border>
                 </StackPanel>

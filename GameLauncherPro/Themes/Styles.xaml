@@ -21,6 +21,11 @@
     <SolidColorBrush x:Key="ChartBgBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="ChartAxisBrush" Color="#64748B" />
     <SolidColorBrush x:Key="ChartLabelBrush" Color="#1B2430" />
+    <SolidColorBrush x:Key="HeatmapEmptyBrush" Color="#E7EDF3" />
+    <SolidColorBrush x:Key="HeatmapLevel1Brush" Color="#B7DCE8" />
+    <SolidColorBrush x:Key="HeatmapLevel2Brush" Color="#72B9C7" />
+    <SolidColorBrush x:Key="HeatmapLevel3Brush" Color="#2E8998" />
+    <SolidColorBrush x:Key="HeatmapLevel4Brush" Color="#13616E" />
     <SolidColorBrush x:Key="SecondaryHoverBrush" Color="#F1F5F9" />
     <SolidColorBrush x:Key="DangerBorderBrush" Color="#6B3A3A" />
     <SolidColorBrush x:Key="DangerHoverBackgroundBrush" Color="#FFF1F1" />

@@ -20,15 +20,29 @@ namespace GameLauncherPro.Services
         private DispatcherTimer? _monitorTimer;
         private DispatcherTimer? _powerCheckTimer;
         private volatile bool _isMonitoringBusy;
+        private volatile bool _isStopping;
 
         private readonly Dictionary<string, DateTime> _runningGameStartTimes = new();
         private readonly Dictionary<string, string> _runningGameExePaths = new();
+        private readonly Dictionary<string, string> _runningGameNames = new();
         // PID cache: full Process.GetProcesses() only every 30s
         private readonly Dictionary<string, int> _trackedPids = new(StringComparer.OrdinalIgnoreCase);
         private int _tickCounter;
 
         public HashSet<string> CachedExes { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public IReadOnlyDictionary<string, string> RunningGameExePaths => _runningGameExePaths;
+        public IReadOnlyDictionary<string, string> RunningGameExePaths
+        {
+            get
+            {
+                lock (_data.DataLock)
+                {
+                    return _runningGameExePaths.ToDictionary(
+                        item => _runningGameNames.TryGetValue(item.Key, out var name) ? name : item.Key,
+                        item => item.Value,
+                        StringComparer.OrdinalIgnoreCase);
+                }
+            }
+        }
 
         public event Action<string, bool>? RunningStateUpdated;
 
@@ -41,6 +55,7 @@ namespace GameLauncherPro.Services
 
         public void Start()
         {
+            _isStopping = false;
             _monitorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(CHECK_INTERVAL) };
             _monitorTimer.Tick += MonitorTick;
             _monitorTimer.Start();
@@ -51,8 +66,13 @@ namespace GameLauncherPro.Services
 
         public void Stop()
         {
+            _isStopping = true;
             try { _monitorTimer?.Stop(); } catch { }
             try { _powerCheckTimer?.Stop(); } catch { }
+            if (FinalizeStoppedGames(Array.Empty<string>(), DateTime.Now))
+            {
+                _data.SaveGameData();
+            }
         }
 
         public static bool IsOnACPower()
@@ -79,20 +99,20 @@ namespace GameLauncherPro.Services
 
         private void MonitorTick(object? sender, EventArgs e)
         {
-            if (_isMonitoringBusy) return;
+            if (_isStopping || _isMonitoringBusy) return;
             _isMonitoringBusy = true;
             System.Threading.Tasks.Task.Run(() =>
             {
                 try
                 {
-                    if (string.IsNullOrEmpty(_data.GameRootDir)) return;
+                    if (_isStopping || string.IsNullOrEmpty(_data.GameRootDir)) return;
                     // Full scan control: first tick + every 30s
                     _tickCounter++;
                     bool doFullScan = _tickCounter == 1 || _tickCounter >= 6;
                     if (doFullScan && _tickCounter >= 6) _tickCounter = 0;
 
                     int currentPid = Process.GetCurrentProcess().Id;
-                    var runningExes = new List<string>(_trackedPids.Count + 4);
+                    var runningGameIds = new HashSet<string>(StringComparer.Ordinal);
 
                     if (doFullScan)
                     {
@@ -101,11 +121,12 @@ namespace GameLauncherPro.Services
                         {
                             try
                             {
-                                if (!TryMatchProcess(process, currentPid, out var gameName, out var exePath))
+                                if (!TryMatchProcess(process, currentPid, out var fallbackName, out var exePath))
                                     continue;
-                                runningExes.Add(gameName);
-                                AddOrUpdateRunningGame(gameName, exePath);
-                                _trackedPids[gameName] = process.Id;
+                                var identity = _data.ResolveGameForExecutable(fallbackName, exePath);
+                                runningGameIds.Add(identity.Id);
+                                AddOrUpdateRunningGame(identity, exePath);
+                                _trackedPids[identity.Id] = process.Id;
                             }
                             catch { }
                         }
@@ -126,10 +147,10 @@ namespace GameLauncherPro.Services
                                 if (string.IsNullOrEmpty(exePath)) continue;
                                 if (!exePath.StartsWith(_data.GameRootDir, StringComparison.OrdinalIgnoreCase)) continue;
 
-                                runningExes.Add(kv.Key);
-                                lock (_data.DataLock)
+                                if (_data.TryGetGameById(kv.Key, out var identity))
                                 {
-                                    _runningGameExePaths[kv.Key] = exePath;
+                                    runningGameIds.Add(identity.Id);
+                                    AddOrUpdateRunningGame(identity, exePath);
                                 }
                             }
                             catch
@@ -140,44 +161,33 @@ namespace GameLauncherPro.Services
                     }
 
                     // Build display text (outside the lock!)
-                    var runningDisplay = new List<string>(runningExes.Count);
-                    foreach (var gameName in runningExes)
+                    var runningDisplay = new List<string>(runningGameIds.Count);
+                    foreach (var gameId in runningGameIds)
                     {
                         int elapsed;
+                        string gameName;
                         lock (_data.DataLock)
                         {
-                            elapsed = _runningGameStartTimes.TryGetValue(gameName, out var start)
+                            elapsed = _runningGameStartTimes.TryGetValue(gameId, out var start)
                                 ? (int)(DateTime.Now - start).TotalSeconds
                                 : 0;
+                            gameName = _runningGameNames.TryGetValue(gameId, out var name) ? name : "Unknown Game";
                         }
                         runningDisplay.Add(gameName + " | " + FormatTime(elapsed));
                     }
                     RunningStateUpdated?.Invoke(
                         runningDisplay.Count > 0 ? string.Join("\n", runningDisplay) + "\n" : "",
                         runningDisplay.Count > 0);
-                    var stoppedGames = new List<string>();
-                    lock (_data.DataLock)
+                    var hasStoppedGames = FinalizeStoppedGames(runningGameIds, DateTime.Now);
+                    if (hasStoppedGames && _isStopping)
                     {
-                        foreach (var game in _runningGameStartTimes.Keys.ToList())
-                        {
-                            if (!runningExes.Contains(game))
-                            {
-                                if (!_data.GameData.ContainsKey(game)) _data.GameData[game] = new GameData();
-                                int duration = (int)(DateTime.Now - _runningGameStartTimes[game]).TotalSeconds;
-                                _data.GameData[game].total_seconds += duration;
-                                _data.GameData[game].last_play = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                if (_runningGameExePaths.TryGetValue(game, out var se))
-                                {
-                                    if (!_data.GameData[game].exe_paths.Contains(se)) _data.GameData[game].exe_paths.Add(se);
-                                    if (string.IsNullOrEmpty(_data.GameData[game].launch_exe)) _data.GameData[game].launch_exe = se;
-                                }
-                                stoppedGames.Add(game);
-                            }
-                        }
-                        foreach (var g in stoppedGames) { _runningGameStartTimes.Remove(g); _runningGameExePaths.Remove(g); }
+                        _data.SaveGameData();
                     }
-                    if (stoppedGames.Count > 0) _onScheduleSave();
-                    _onTick(stoppedGames.Count > 0);
+                    else if (hasStoppedGames)
+                    {
+                        _onScheduleSave();
+                    }
+                    _onTick(hasStoppedGames);
                 }
                 finally { _isMonitoringBusy = false; }
             });
@@ -201,14 +211,44 @@ namespace GameLauncherPro.Services
             return true;
         }
 
-        private void AddOrUpdateRunningGame(string gameName, string exePath)
+        private void AddOrUpdateRunningGame(GameDataService.GameIdentity identity, string exePath)
         {
             lock (_data.DataLock)
             {
-                _runningGameExePaths[gameName] = exePath;
-                if (!_runningGameStartTimes.ContainsKey(gameName))
-                    _runningGameStartTimes[gameName] = DateTime.Now;
+                _runningGameExePaths[identity.Id] = exePath;
+                _runningGameNames[identity.Id] = identity.Name;
+                if (!_runningGameStartTimes.ContainsKey(identity.Id))
+                    _runningGameStartTimes[identity.Id] = DateTime.Now;
             }
+        }
+
+        private bool FinalizeStoppedGames(IEnumerable<string> activeGameIds, DateTime endedAt)
+        {
+            var activeIds = new HashSet<string>(activeGameIds, StringComparer.Ordinal);
+            var completed = new List<(string GameId, DateTime StartedAt)>();
+            lock (_data.DataLock)
+            {
+                foreach (var gameId in _runningGameStartTimes.Keys.ToList())
+                {
+                    if (activeIds.Contains(gameId))
+                    {
+                        continue;
+                    }
+
+                    completed.Add((gameId, _runningGameStartTimes[gameId]));
+                    _runningGameStartTimes.Remove(gameId);
+                    _runningGameExePaths.Remove(gameId);
+                    _runningGameNames.Remove(gameId);
+                    _trackedPids.Remove(gameId);
+                }
+            }
+
+            foreach (var session in completed)
+            {
+                _data.CompletePlaySession(session.GameId, session.StartedAt, endedAt);
+            }
+
+            return completed.Count > 0;
         }
 
 private static string FormatTime(int seconds)

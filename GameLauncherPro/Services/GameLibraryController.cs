@@ -258,17 +258,14 @@ namespace GameLauncherPro.Services
             }
         }
 
+        public bool TrySetLaunchExe(string gameName, string launchExe, out string conflictGameName)
+        {
+            return _data.TryAssignLaunchExecutable(gameName, launchExe, out conflictGameName);
+        }
+
         public void SetLaunchExe(string gameName, string launchExe)
         {
-            lock (_data.DataLock)
-            {
-                var data = GetOrCreateGameData(gameName);
-                data.launch_exe = launchExe;
-                if (!data.exe_paths.Contains(launchExe))
-                {
-                    data.exe_paths.Add(launchExe);
-                }
-            }
+            TrySetLaunchExe(gameName, launchExe, out _);
         }
 
         public void AddOrUpdateGame(string gameName, string exePath)
@@ -398,7 +395,7 @@ namespace GameLauncherPro.Services
         {
             if (!_data.GameData.TryGetValue(gameName, out var data))
             {
-                data = new GameData();
+                data = new GameData { game_id = Guid.NewGuid().ToString("N") };
                 _data.GameData[gameName] = data;
             }
 

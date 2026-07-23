@@ -4,6 +4,7 @@ namespace GameLauncherPro
 {
     public class GameData
     {
+        public string game_id { get; set; } = "";
         public int total_seconds { get; set; } = 0;
         public string last_play { get; set; } = "";
         public List<string> exe_paths { get; set; } = new();
@@ -18,5 +19,6 @@ namespace GameLauncherPro
         // 用户评分：0-10
         public int score { get; set; } = 0;
         public string launch_exe { get; set; } = "";
+        public List<PlaySession> play_sessions { get; set; } = new();
     }
 }

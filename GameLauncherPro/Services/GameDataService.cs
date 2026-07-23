@@ -30,11 +30,173 @@ namespace GameLauncherPro.Services
         public List<TagDefinition> TagCatalog { get; private set; } = new();
         public Dictionary<string, GameData> GameData { get; private set; } = new();
 
+        public sealed record GameIdentity(string Id, string Name);
+
+        public sealed record PlaySessionEntry(
+            string GameId,
+            string GameName,
+            DateTime StartedAt,
+            DateTime EndedAt,
+            int DurationSeconds);
+
         public Dictionary<string, GameData> GetSnapshot()
         {
             lock (DataLock)
             {
                 return new Dictionary<string, GameData>(GameData);
+            }
+        }
+
+        public GameIdentity ResolveGameForExecutable(string fallbackName, string executablePath)
+        {
+            lock (DataLock)
+            {
+                var normalizedPath = NormalizeExecutablePath(executablePath);
+                var matches = GameData
+                    .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+                    .Where(item => ExecutablePathsMatch(item.Value.launch_exe, normalizedPath))
+                    .Concat(GameData
+                        .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+                        .Where(item => !ExecutablePathsMatch(item.Value.launch_exe, normalizedPath)
+                            && item.Value.exe_paths.Any(path => ExecutablePathsMatch(path, normalizedPath))))
+                    .ToList();
+                if (matches.Count > 0)
+                {
+                    var match = matches[0];
+                    return new GameIdentity(match.Value.game_id, match.Key);
+                }
+
+                var name = string.IsNullOrWhiteSpace(fallbackName) ? "Unknown Game" : fallbackName.Trim();
+                if (!GameData.TryGetValue(name, out var data))
+                {
+                    data = new GameData { game_id = Guid.NewGuid().ToString("N") };
+                    GameData[name] = data;
+                }
+
+                EnsureGameData(data);
+                if (!string.IsNullOrWhiteSpace(executablePath)
+                    && !data.exe_paths.Any(path => ExecutablePathsMatch(path, normalizedPath)))
+                {
+                    data.exe_paths.Add(executablePath);
+                }
+                if (string.IsNullOrWhiteSpace(data.launch_exe))
+                {
+                    data.launch_exe = executablePath;
+                }
+
+                return new GameIdentity(data.game_id, name);
+            }
+        }
+
+        public bool TryAssignLaunchExecutable(string gameName, string executablePath, out string conflictGameName)
+        {
+            lock (DataLock)
+            {
+                conflictGameName = string.Empty;
+                var normalizedPath = NormalizeExecutablePath(executablePath);
+                if (string.IsNullOrWhiteSpace(normalizedPath))
+                {
+                    return false;
+                }
+
+                var conflict = GameData.FirstOrDefault(item =>
+                    !string.Equals(item.Key, gameName, StringComparison.OrdinalIgnoreCase)
+                    && (ExecutablePathsMatch(item.Value.launch_exe, normalizedPath)
+                        || item.Value.exe_paths.Any(path => ExecutablePathsMatch(path, normalizedPath))));
+                if (!string.IsNullOrWhiteSpace(conflict.Key))
+                {
+                    conflictGameName = conflict.Key;
+                    return false;
+                }
+
+                if (!GameData.TryGetValue(gameName, out var data))
+                {
+                    data = new GameData { game_id = Guid.NewGuid().ToString("N") };
+                    GameData[gameName] = data;
+                }
+                EnsureGameData(data);
+                data.launch_exe = executablePath;
+                if (!data.exe_paths.Any(path => ExecutablePathsMatch(path, normalizedPath)))
+                {
+                    data.exe_paths.Add(executablePath);
+                }
+                return true;
+            }
+        }
+
+        public bool TryGetGameById(string gameId, out GameIdentity identity)
+        {
+            lock (DataLock)
+            {
+                var match = GameData.FirstOrDefault(item => string.Equals(item.Value.game_id, gameId, StringComparison.Ordinal));
+                if (!string.IsNullOrWhiteSpace(match.Key))
+                {
+                    identity = new GameIdentity(match.Value.game_id, match.Key);
+                    return true;
+                }
+            }
+
+            identity = new GameIdentity(string.Empty, string.Empty);
+            return false;
+        }
+
+        public bool CompletePlaySession(string gameId, DateTime startedAt, DateTime endedAt)
+        {
+            var duration = Math.Max(0, (int)(endedAt - startedAt).TotalSeconds);
+            if (duration == 0)
+            {
+                return false;
+            }
+
+            lock (DataLock)
+            {
+                var match = GameData.FirstOrDefault(item => string.Equals(item.Value.game_id, gameId, StringComparison.Ordinal));
+                if (string.IsNullOrWhiteSpace(match.Key))
+                {
+                    return false;
+                }
+
+                var data = match.Value;
+                EnsureGameData(data);
+                data.total_seconds += duration;
+                data.last_play = endedAt.ToString("yyyy-MM-dd HH:mm:ss");
+                data.play_sessions.Add(new PlaySession
+                {
+                    game_id = data.game_id,
+                    started_at = startedAt.ToString("O"),
+                    ended_at = endedAt.ToString("O"),
+                    duration_seconds = duration
+                });
+                return true;
+            }
+        }
+
+        public IReadOnlyList<PlaySessionEntry> GetPlaySessionSnapshot()
+        {
+            lock (DataLock)
+            {
+                return GameData
+                    .SelectMany(item => item.Value.play_sessions.Select(session => CreateSessionEntry(item.Key, item.Value.game_id, session)))
+                    .Where(entry => entry is not null)
+                    .Select(entry => entry!)
+                    .OrderByDescending(entry => entry.EndedAt)
+                    .ToList();
+            }
+        }
+
+        public IReadOnlyList<string> GetExecutablePathConflicts()
+        {
+            lock (DataLock)
+            {
+                return GameData
+                    .SelectMany(item => item.Value.exe_paths
+                        .Append(item.Value.launch_exe)
+                        .Select(path => new { item.Key, Path = NormalizeExecutablePath(path) }))
+                    .Where(item => !string.IsNullOrWhiteSpace(item.Path))
+                    .GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
+                    .Where(group => group.Select(item => item.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                    .Select(group => group.Key)
+                    .ToList();
             }
         }
 
@@ -235,13 +397,12 @@ namespace GameLauncherPro.Services
             {
                 EnsureDirectoryExists(dataPath);
 
-                Dictionary<string, GameData> snapshot;
+                string content;
                 lock (DataLock)
                 {
-                    snapshot = new Dictionary<string, GameData>(GameData);
+                    content = JsonSerializer.Serialize(GameData, new JsonSerializerOptions { WriteIndented = true });
                 }
 
-                var content = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
                 var tempPath = dataPath + ".tmp";
                 File.WriteAllText(tempPath, content);
 
@@ -309,20 +470,83 @@ namespace GameLauncherPro.Services
 
         private static void NormalizeGameData(Dictionary<string, GameData> games)
         {
+            var usedIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var game in games.Values)
             {
-                game.exe_paths ??= new List<string>();
-                game.screenshot_paths ??= new List<string>();
-                game.cover_path ??= string.Empty;
-                game.cover_back_path ??= string.Empty;
-                game.current_side = game.current_side == "back" ? "back" : "front";
-                game.last_play ??= string.Empty;
-                game.launch_exe ??= string.Empty;
-                game.status = NormalizeStatus(game.status);
-                game.tags = NormalizeTags(game.tags);
-                game.review ??= string.Empty;
+                EnsureGameData(game);
+                while (!usedIds.Add(game.game_id))
+                {
+                    game.game_id = Guid.NewGuid().ToString("N");
+                }
+                foreach (var session in game.play_sessions)
+                {
+                    session.game_id = game.game_id;
+                }
             }
         }
+
+        private static void EnsureGameData(GameData game)
+        {
+            game.game_id = Guid.TryParse(game.game_id, out _) ? game.game_id : Guid.NewGuid().ToString("N");
+            game.exe_paths ??= new List<string>();
+            game.screenshot_paths ??= new List<string>();
+            game.play_sessions ??= new List<PlaySession>();
+            game.cover_path ??= string.Empty;
+            game.cover_back_path ??= string.Empty;
+            game.current_side = game.current_side == "back" ? "back" : "front";
+            game.last_play ??= string.Empty;
+            game.launch_exe ??= string.Empty;
+            game.status = NormalizeStatus(game.status);
+            game.tags = NormalizeTags(game.tags);
+            game.review ??= string.Empty;
+            game.play_sessions = game.play_sessions
+                .Where(session => session is not null
+                    && DateTime.TryParse(session.started_at, out _)
+                    && DateTime.TryParse(session.ended_at, out _)
+                    && session.duration_seconds > 0)
+                .Select(session => new PlaySession
+                {
+                    game_id = game.game_id,
+                    started_at = session.started_at,
+                    ended_at = session.ended_at,
+                    duration_seconds = session.duration_seconds
+                })
+                .ToList();
+        }
+
+        private static PlaySessionEntry? CreateSessionEntry(string gameName, string gameId, PlaySession session)
+        {
+            if (!DateTime.TryParse(session.started_at, out var startedAt)
+                || !DateTime.TryParse(session.ended_at, out var endedAt)
+                || endedAt <= startedAt
+                || session.duration_seconds <= 0)
+            {
+                return null;
+            }
+
+            return new PlaySessionEntry(gameId, gameName, startedAt, endedAt, session.duration_seconds);
+        }
+
+        private static string NormalizeExecutablePath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return path.Trim();
+            }
+        }
+
+        private static bool ExecutablePathsMatch(string? left, string normalizedRight) =>
+            !string.IsNullOrWhiteSpace(normalizedRight)
+            && string.Equals(NormalizeExecutablePath(left), normalizedRight, StringComparison.OrdinalIgnoreCase);
 
         private void MergeGameTagsIntoCatalog()
         {

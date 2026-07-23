@@ -24,6 +24,7 @@ using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using MediaColor = System.Windows.Media.Color;
+using MediaBrushes = System.Windows.Media.Brushes;
 
 namespace GameLauncherPro
 {
@@ -45,7 +46,6 @@ namespace GameLauncherPro
         private DispatcherTimer? _saveDebounceTimer;
         private DateTime _lastChartUpdateTime = DateTime.MinValue;
 
-        private CartesianChart? _barChart;
         private PieChart? _pieChart;
         private GameViewModel? _selectedGame;
         private int _screenshotIndex;
@@ -66,6 +66,7 @@ namespace GameLauncherPro
             RefreshTagCatalog();
             InitializeTimers();
             InitializeCharts();
+            InitializeRecordFilters();
             InitializeProcessMonitor();
             InitializeTrayIcon();
 
@@ -83,6 +84,14 @@ namespace GameLauncherPro
         public ObservableCollection<TagDisplayViewModel> TagCatalog { get; } = new();
 
         public ObservableCollection<TagOptionViewModel> TagOptions { get; } = new();
+
+        public ObservableCollection<HeatmapCellViewModel> CalendarHeatmapCells { get; } = new();
+
+        public ObservableCollection<HeatmapCellViewModel> HourHeatmapCells { get; } = new();
+
+        public ObservableCollection<string> HourLabels { get; } = new(Enumerable.Range(0, 24).Select(hour => $"{hour:D2}:00"));
+
+        public ObservableCollection<PlaySessionViewModel> PlaySessionRows { get; } = new();
 
         public GameViewModel? SelectedGame
         {
@@ -234,20 +243,18 @@ namespace GameLauncherPro
 
         private void InitializeCharts()
         {
-            _barChart = FindName(nameof(Lc_BarChart)) as CartesianChart;
             _pieChart = FindName(nameof(Lc_PieChart)) as PieChart;
-
-            if (_barChart is not null)
-            {
-                _barChart.Series = Array.Empty<ISeries>();
-                _barChart.XAxes = new[] { new Axis() };
-                _barChart.YAxes = new[] { new Axis() };
-            }
 
             if (_pieChart is not null)
             {
                 _pieChart.Series = Array.Empty<ISeries>();
             }
+        }
+
+        private void InitializeRecordFilters()
+        {
+            Dp_RecordStart.SelectedDate = DateTime.Today.AddDays(-29);
+            Dp_RecordEnd.SelectedDate = DateTime.Today;
         }
 
         private async Task ReloadDataViewsAsync(bool includeCharts)
@@ -353,41 +360,13 @@ namespace GameLauncherPro
 
         private void RefreshCharts()
         {
-            if (_barChart is null || _pieChart is null)
+            if (_pieChart is null)
             {
                 return;
             }
 
             var snapshot = _chartService.BuildSnapshot(_data.GetSnapshot());
             Tb_Rank.Text = snapshot.RankText;
-
-            var labelColor = GetThemeSkColor("ChartAxisBrush", 0x64, 0x74, 0x8B);
-            _barChart.XAxes = new[]
-            {
-                new Axis
-                {
-                    Labels = snapshot.Labels,
-                    LabelsRotation = 45,
-                    LabelsPaint = new SolidColorPaint(labelColor)
-                }
-            };
-            _barChart.YAxes = new[]
-            {
-                new Axis
-                {
-                    Labeler = value => _chartService.FormatTime((int)value),
-                    LabelsPaint = new SolidColorPaint(labelColor)
-                }
-            };
-            _barChart.Series = new ISeries[]
-            {
-                new ColumnSeries<double>
-                {
-                    Values = snapshot.Values,
-                    Fill = new SolidColorPaint(GetThemeSkColor("AccentBrush", 0x3B, 0x82, 0xF6)),
-                    Stroke = new SolidColorPaint(GetThemeSkColor("AccentHoverBrush", 0x25, 0x63, 0xEB)) { StrokeThickness = 1 }
-                }
-            };
 
             var pieColors = new[]
             {
@@ -437,9 +416,116 @@ namespace GameLauncherPro
 
         private void RenderRecord()
         {
-            var snapshot = _data.GetSnapshot();
-            Tb_Record.Text = _chartService.BuildRecordText(_data.GameRootDir, snapshot);
+            var sessions = _data.GetPlaySessionSnapshot();
+            RefreshInsights(sessions);
+
+            var startDate = Dp_RecordStart.SelectedDate?.Date;
+            var endDate = Dp_RecordEnd.SelectedDate?.Date;
+            if (startDate.HasValue && endDate.HasValue && startDate > endDate)
+            {
+                PlaySessionRows.Clear();
+                Tb_RecordSummary.Text = "\u5f00\u59cb\u65e5\u671f\u4e0d\u80fd\u665a\u4e8e\u7ed3\u675f\u65e5\u671f\u3002";
+                Tb_RecordEmpty.Text = "\u8bf7\u8c03\u6574\u65e5\u671f\u8303\u56f4\u3002";
+                Tb_RecordEmpty.Visibility = Visibility.Visible;
+                return;
+            }
+
+            var startBoundary = startDate ?? DateTime.MinValue;
+            var endBoundary = endDate?.AddDays(1) ?? DateTime.MaxValue;
+            var filtered = sessions
+                .Where(session => session.EndedAt > startBoundary && session.StartedAt < endBoundary)
+                .ToList();
+
+            PlaySessionRows.Clear();
+            foreach (var session in filtered)
+            {
+                PlaySessionRows.Add(new PlaySessionViewModel(
+                    session.GameName,
+                    session.StartedAt,
+                    session.EndedAt,
+                    session.DurationSeconds));
+            }
+
+            Tb_RecordSummary.Text = $"{filtered.Count} \u6761\u6e38\u73a9\u8bb0\u5f55";
+            Tb_RecordEmpty.Text = filtered.Count == 0 ? "\u5f53\u524d\u65e5\u671f\u8303\u56f4\u5185\u6ca1\u6709\u6e38\u73a9\u8bb0\u5f55\u3002" : string.Empty;
+            Tb_RecordEmpty.Visibility = filtered.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        private void RefreshInsights(IReadOnlyList<GameDataService.PlaySessionEntry> sessions)
+        {
+            var insights = _chartService.BuildInsights(sessions, DateTime.Now);
+            CalendarHeatmapCells.Clear();
+            foreach (var cell in insights.DailyCells)
+            {
+                CalendarHeatmapCells.Add(CreateHeatmapCell(
+                    cell.Date.Day.ToString(),
+                    $"{cell.Date:yyyy-MM-dd}\n{_chartService.FormatTime(cell.Seconds)}",
+                    cell.Seconds,
+                    insights.MaxDailySeconds,
+                    cell.IsInRange));
+            }
+
+            HourHeatmapCells.Clear();
+            foreach (var cell in insights.HourlyCells)
+            {
+                HourHeatmapCells.Add(CreateHeatmapCell(
+                    string.Empty,
+                    $"{GetDayLabel(cell.Day)} {cell.Hour:D2}:00-{(cell.Hour + 1) % 24:D2}:00\n{_chartService.FormatTime(cell.Seconds)}",
+                    cell.Seconds,
+                    insights.MaxHourlySeconds,
+                    true));
+            }
+
+            Tb_InsightsEmpty.Text = insights.MaxDailySeconds == 0 && insights.MaxHourlySeconds == 0
+                ? "\u6682\u65e0\u81ea\u52a8\u8bb0\u5f55\u7684\u6e38\u73a9\u4f1a\u8bdd\u3002"
+                : string.Empty;
+        }
+
+        private HeatmapCellViewModel CreateHeatmapCell(string label, string toolTip, int seconds, int maximumSeconds, bool isInRange)
+        {
+            if (!isInRange)
+            {
+                return new HeatmapCellViewModel
+                {
+                    Label = string.Empty,
+                    ToolTip = string.Empty,
+                    Background = MediaBrushes.Transparent,
+                    Foreground = MediaBrushes.Transparent,
+                    IsInRange = false
+                };
+            }
+
+            var level = maximumSeconds <= 0 || seconds <= 0
+                ? 0
+                : Math.Clamp((int)Math.Ceiling((double)seconds / maximumSeconds * 4), 1, 4);
+            var brushKey = level switch
+            {
+                1 => "HeatmapLevel1Brush",
+                2 => "HeatmapLevel2Brush",
+                3 => "HeatmapLevel3Brush",
+                4 => "HeatmapLevel4Brush",
+                _ => "HeatmapEmptyBrush"
+            };
+            return new HeatmapCellViewModel
+            {
+                Label = label,
+                ToolTip = toolTip,
+                Background = ThemeService.GetBrush(brushKey) ?? MediaBrushes.Transparent,
+                Foreground = level >= 3 ? MediaBrushes.White : ThemeService.GetBrush("TextSecondaryBrush") ?? MediaBrushes.Black,
+                IsInRange = true
+            };
+        }
+
+        private static string GetDayLabel(DayOfWeek day) => day switch
+        {
+            DayOfWeek.Monday => "\u5468\u4e00",
+            DayOfWeek.Tuesday => "\u5468\u4e8c",
+            DayOfWeek.Wednesday => "\u5468\u4e09",
+            DayOfWeek.Thursday => "\u5468\u56db",
+            DayOfWeek.Friday => "\u5468\u4e94",
+            DayOfWeek.Saturday => "\u5468\u516d",
+            _ => "\u5468\u65e5"
+        };
 
         private void UpdateStatusBar()
         {
@@ -558,6 +644,22 @@ namespace GameLauncherPro
             ApplyLibraryViewState();
         }
 
+        private void RecordDateFilter_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (IsLoaded)
+            {
+                RenderRecord();
+            }
+        }
+
+        private void Btn_ResetRecordFilter_Click(object sender, RoutedEventArgs e)
+        {
+            Dp_RecordStart.SelectedDate = DateTime.Today.AddDays(-29);
+            Dp_RecordEnd.SelectedDate = DateTime.Today;
+            RenderRecord();
+        }
+
+
         private void Rb_AutoManual_Checked(object sender, RoutedEventArgs e)
         {
             _data.AutoRefreshMode = AutoRefreshModeEnum.Manual;
@@ -591,6 +693,7 @@ namespace GameLauncherPro
             ThemeService.Apply(this, _data.DarkMode);
             _library.RefreshTheme();
             RefreshTagCatalog();
+            RenderRecord();
             RefreshCharts();
 
             if (IsLoaded)
@@ -785,11 +888,17 @@ namespace GameLauncherPro
 
             CloseDrawer();
             _data.ReplaceGameData(imported);
+            var executableConflicts = _data.GetExecutablePathConflicts();
             _data.SaveGameData();
             _data.SaveConfig();
             RefreshTagCatalog();
             await ReloadDataViewsAsync(includeCharts: true);
-            MessageBox.Show($"已导入 {imported.Count} 条游戏记录。", "导入完成");
+            var importMessage = $"已导入 {imported.Count} 条游戏记录。";
+            if (executableConflicts.Count > 0)
+            {
+                importMessage += $"\n检测到 {executableConflicts.Count} 个重复绑定的启动路径；监控将使用确定的已有归属，请重新分配冲突路径。";
+            }
+            MessageBox.Show(importMessage, "导入完成");
         }
 
         private void CardMore_Click(object sender, RoutedEventArgs e)
@@ -1166,7 +1275,15 @@ namespace GameLauncherPro
                 return;
             }
 
-            _library.SetLaunchExe(game.Name, dialog.FileName);
+            if (!_library.TrySetLaunchExe(game.Name, dialog.FileName, out var conflictGameName))
+            {
+                MessageBox.Show(
+                    $"\u6240\u9009\u542f\u52a8\u7a0b\u5e8f\u5df2\u7ed1\u5b9a\u5230\u6e38\u620f\uff1a{conflictGameName}\u3002",
+                    "\u542f\u52a8\u7a0b\u5e8f\u51b2\u7a81",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
             _data.SaveGameData();
             await ReloadDataViewsAsync(includeCharts: false);
         }

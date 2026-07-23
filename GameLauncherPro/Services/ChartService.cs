@@ -55,6 +55,94 @@ namespace GameLauncherPro.Services
             var remainingSeconds = seconds % 60;
             return $"{hours:00}小时{minutes:00}分钟{remainingSeconds:00}秒";
         }
+
+        public InsightsSnapshot BuildInsights(IEnumerable<GameDataService.PlaySessionEntry> sessions, System.DateTime now)
+        {
+            var today = now.Date;
+            var rangeStart = today.AddDays(-29);
+            var rangeEnd = today.AddDays(1);
+            var relevant = sessions
+                .Where(session => session.EndedAt > rangeStart && session.StartedAt < rangeEnd)
+                .ToList();
+
+            var dailyTotals = new Dictionary<System.DateTime, int>();
+            var hourTotals = new Dictionary<(System.DayOfWeek Day, int Hour), int>();
+            foreach (var session in relevant)
+            {
+                AccumulateByDay(session, rangeStart, rangeEnd, dailyTotals);
+                AccumulateByHour(session, rangeStart, rangeEnd, hourTotals);
+            }
+
+            var calendarStart = rangeStart.AddDays(-((int)(rangeStart.DayOfWeek + 6) % 7));
+            var dailyCells = Enumerable.Range(0, 35)
+                .Select(offset =>
+                {
+                    var date = calendarStart.AddDays(offset);
+                    var inRange = date >= rangeStart && date <= today;
+                    return new DailyHeatmapCell(date, inRange, inRange && dailyTotals.TryGetValue(date, out var seconds) ? seconds : 0);
+                })
+                .ToList();
+
+            var hourlyCells = Enumerable.Range(0, 7)
+                .SelectMany(dayOffset => Enumerable.Range(0, 24)
+                    .Select(hour =>
+                    {
+                        var day = (System.DayOfWeek)((dayOffset + 1) % 7);
+                        return new HourHeatmapCell(day, hour, hourTotals.TryGetValue((day, hour), out var seconds) ? seconds : 0);
+                    }))
+                .ToList();
+
+            return new InsightsSnapshot(
+                dailyCells,
+                hourlyCells,
+                dailyCells.Max(cell => cell.Seconds),
+                hourlyCells.Max(cell => cell.Seconds));
+        }
+
+        private static void AccumulateByDay(
+            GameDataService.PlaySessionEntry session,
+            System.DateTime rangeStart,
+            System.DateTime rangeEnd,
+            IDictionary<System.DateTime, int> totals)
+        {
+            var cursor = session.StartedAt > rangeStart ? session.StartedAt : rangeStart;
+            var end = session.EndedAt < rangeEnd ? session.EndedAt : rangeEnd;
+            while (cursor < end)
+            {
+                var boundary = cursor.Date.AddDays(1);
+                var segmentEnd = boundary < end ? boundary : end;
+                AddSeconds(totals, cursor.Date, segmentEnd - cursor);
+                cursor = segmentEnd;
+            }
+        }
+
+        private static void AccumulateByHour(
+            GameDataService.PlaySessionEntry session,
+            System.DateTime rangeStart,
+            System.DateTime rangeEnd,
+            IDictionary<(System.DayOfWeek Day, int Hour), int> totals)
+        {
+            var cursor = session.StartedAt > rangeStart ? session.StartedAt : rangeStart;
+            var end = session.EndedAt < rangeEnd ? session.EndedAt : rangeEnd;
+            while (cursor < end)
+            {
+                var boundary = cursor.Date.AddHours(cursor.Hour + 1);
+                var segmentEnd = boundary < end ? boundary : end;
+                AddSeconds(totals, (cursor.DayOfWeek, cursor.Hour), segmentEnd - cursor);
+                cursor = segmentEnd;
+            }
+        }
+
+        private static void AddSeconds<TKey>(IDictionary<TKey, int> totals, TKey key, System.TimeSpan duration) where TKey : notnull
+        {
+            var seconds = Math.Max(0, (int)duration.TotalSeconds);
+            if (seconds == 0)
+            {
+                return;
+            }
+
+            totals[key] = totals.TryGetValue(key, out var existing) ? existing + seconds : seconds;
+        }
     }
 
     public sealed record ChartSnapshot(
@@ -62,4 +150,14 @@ namespace GameLauncherPro.Services
         string[] Labels,
         double[] Values,
         string RankText);
+
+    public sealed record DailyHeatmapCell(System.DateTime Date, bool IsInRange, int Seconds);
+
+    public sealed record HourHeatmapCell(System.DayOfWeek Day, int Hour, int Seconds);
+
+    public sealed record InsightsSnapshot(
+        IReadOnlyList<DailyHeatmapCell> DailyCells,
+        IReadOnlyList<HourHeatmapCell> HourlyCells,
+        int MaxDailySeconds,
+        int MaxHourlySeconds);
 }
