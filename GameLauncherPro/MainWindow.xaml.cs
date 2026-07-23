@@ -1374,7 +1374,11 @@ namespace GameLauncherPro
 
             try
             {
-                Process.Start(new ProcessStartInfo(executablePath) { UseShellExecute = true });
+                using var launchedProcess = Process.Start(new ProcessStartInfo(executablePath) { UseShellExecute = true });
+                if (launchedProcess is not null)
+                {
+                    _monitor.TrackLaunchedGame(gameName, executablePath, launchedProcess.Id);
+                }
             }
             catch (Exception ex)
             {

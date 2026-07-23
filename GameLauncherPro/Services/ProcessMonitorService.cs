@@ -97,6 +97,22 @@ namespace GameLauncherPro.Services
             try { CachedExes.Clear(); foreach (var f in Directory.EnumerateFiles(_data.GameRootDir, "*.exe", SearchOption.AllDirectories)) CachedExes.Add(Path.GetFileNameWithoutExtension(f)); } catch { }
         }
 
+        public void TrackLaunchedGame(string gameName, string executablePath, int processId)
+        {
+            if (_isStopping || processId <= 0)
+            {
+                return;
+            }
+
+            var identity = _data.ResolveGameForExecutable(gameName, executablePath);
+            AddOrUpdateRunningGame(identity, executablePath);
+            lock (_data.DataLock)
+            {
+                _trackedPids[identity.Id] = processId;
+            }
+            RunningStateUpdated?.Invoke(identity.Name + " | " + FormatTime(0) + "\n", true);
+        }
+
         private void MonitorTick(object? sender, EventArgs e)
         {
             if (_isStopping || _isMonitoringBusy) return;
@@ -131,32 +147,37 @@ namespace GameLauncherPro.Services
                             catch { }
                         }
                     }
-                    else
+                    // Directly launched games are known by PID before their window appears, so
+                    // check them on every tick, including a full-scan tick.
+                    foreach (var kv in _trackedPids.ToList())
                     {
-                        // Lightweight: only check cached PIDs (no system-wide enumeration)
-                        foreach (var kv in _trackedPids.ToList())
+                        try
                         {
-                            try
-                            {
-                                var p = Process.GetProcessById(kv.Value);
-                                if (p.HasExited) continue;
-                                if (string.IsNullOrEmpty(p.MainWindowTitle)) continue;
-                                if (!CachedExes.Contains(p.ProcessName)) continue;
-                                string? exePath = null;
-                                try { exePath = p.MainModule?.FileName; } catch { }
-                                if (string.IsNullOrEmpty(exePath)) continue;
-                                if (!exePath.StartsWith(_data.GameRootDir, StringComparison.OrdinalIgnoreCase)) continue;
+                            var p = Process.GetProcessById(kv.Value);
+                            if (p.HasExited) continue;
+                            string? exePath = null;
+                            try { exePath = p.MainModule?.FileName; } catch { }
 
-                                if (_data.TryGetGameById(kv.Key, out var identity))
+                            if (_data.TryGetGameById(kv.Key, out var identity))
+                            {
+                                if (string.IsNullOrEmpty(exePath))
+                                {
+                                    lock (_data.DataLock)
+                                    {
+                                        _runningGameExePaths.TryGetValue(identity.Id, out exePath);
+                                    }
+                                }
+
+                                if (!string.IsNullOrEmpty(exePath))
                                 {
                                     runningGameIds.Add(identity.Id);
                                     AddOrUpdateRunningGame(identity, exePath);
                                 }
                             }
-                            catch
-                            {
-                                // PID no longer exists, handled by stopped-games logic below
-                            }
+                        }
+                        catch
+                        {
+                            // PID no longer exists, handled by stopped-games logic below.
                         }
                     }
 
@@ -193,7 +214,6 @@ namespace GameLauncherPro.Services
             });
         }
 
-        
         private bool TryMatchProcess(Process process, int currentPid, out string gameName, out string exePath)
         {
             gameName = null!;
